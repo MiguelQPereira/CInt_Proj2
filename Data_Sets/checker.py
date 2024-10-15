@@ -1,6 +1,7 @@
 import pandas as pd
 
 GENERATE = 0
+MODE = 1
 
 # Function to read the CSV file, check for duplicates, and sort by country
 def process_cities_csv(file_path):
@@ -50,6 +51,38 @@ def process_cities_csv(file_path):
         
         print("Cities sorted by country and saved as 'output.csv'.")
 
+def generate_matrix_csv(file_path):
+    # Read the CSV file containing cities
+    df = pd.read_csv(file_path)
+    
+    # Extract the list of cities
+    cities = df['city'].tolist()
+    
+    # Create an empty matrix with dimensions (number of cities + 1) x (number of cities + 1)
+    num_cities = len(cities)
+    matrix = [['' for _ in range(num_cities + 1)] for _ in range(num_cities + 1)]
+    
+    # Fill the first row and first column with city names (headers)
+    matrix[0][0] = 'City'
+    matrix[0][1:] = cities  # First row headers (skipping the first cell)
+    for i in range(1, num_cities + 1):
+        matrix[i][0] = cities[i - 1]  # First column headers
+    
+    # Fill the diagonal with '-' and leave the rest empty (or set as needed)
+    for i in range(1, num_cities + 1):
+        matrix[i][i] = '-'
+    
+    # Save the matrix to a new CSV file
+    matrix_df = pd.DataFrame(matrix)
+    matrix_df.to_csv('matrix.csv', index=False, header=False)
+    
+    print(f"Matrix saved to matrix.csv")
+
+
+
 # Example of how to call the function with a CSV file
 file_path = 'cities.csv'  # Replace with the actual file path
-process_cities_csv(file_path)
+if (MODE == 0):
+    process_cities_csv(file_path)
+elif (MODE == 1):
+    generate_matrix_csv(file_path)
