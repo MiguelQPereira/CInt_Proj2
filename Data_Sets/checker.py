@@ -69,8 +69,9 @@ def generate_matrix_csv(file_path):
         matrix[i][0] = cities[i - 1]  # First column headers
     
     # Fill the diagonal with '-' and leave the rest empty (or set as needed)
-    for i in range(1, num_cities + 1):
-        matrix[i][i] = '-'
+    for j in range(1, num_cities + 1):
+        for i in range(1, num_cities + 1):
+            matrix[j][i] = '-'
     
     # Save the matrix to a new CSV file
     matrix_df = pd.DataFrame(matrix)
