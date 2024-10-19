@@ -1,0 +1,51 @@
+city,country,latitude,longitude,plane,train,bus
+Tirana,Albania,41,20,y,y,y
+Vienna,Austria,48,16,y,y,y
+Minsk,Belarus,54,28,y,y,y
+Antwerp,Belgium,51,4,y,y,y
+Brussels,Belgium,51,4,y,y,y
+Sarajevo,Bosnia and Herzegovina,44,18,y,y,y
+Sofia,Bulgaria,43,23,y,y,y
+Zagreb,Croatia,46,16,y,y,y
+Larnaca,Cyprus,35,34,y,n,y
+Prague,Czech Republic,50,14,y,y,y
+Copenhagen,Denmark,56,13,y,y,y
+Tallinn,Estonia,59,25,y,y,y
+Helsinki,Finland,60,25,y,y,y
+Nice,France,44,7,y,y,y
+Paris,France,49,2,y,y,y
+Lyon,France,46,5,y,y,y
+Munich,Germany,48,12,y,y,y
+Berlin,Germany,53,13,y,y,y
+Hamburg,Germany,54,10,y,y,y
+Frankfurt,Germany,50,9,y,y,y
+Athens,Greece,38,24,y,y,y
+Budapest,Hungary,47,19,y,y,y
+Reykjavik,Iceland,64,-22,y,n,n
+Dublin,Ireland,53,-6,y,y,y
+Milan,Italy,45,9,y,y,y
+Rome,Italy,42,12,y,y,y
+Riga,Latvia,57,24,y,y,y
+Vilnius,Lithuania,55,25,y,y,y
+Luxembourg City,Luxembourg,50,6,y,y,y
+Valletta,Malta,36,15,y,n,y
+Chisinau,Moldova,47,29,y,y,y
+Podgorica,Montenegro,42,19,y,y,y
+Amsterdam,Netherlands,52,5,y,y,y
+Skopje,North Macedonia,42,21,y,y,y
+Oslo,Norway,60,11,y,y,y
+Warsaw,Poland,52,21,y,y,y
+Coimbra,Portugal,40,-8,n,y,y
+Lisbon,Portugal,39,-9,y,y,y
+Bucharest,Romania,44,26,y,y,y
+Belgrade,Serbia,45,20,y,y,y
+Bratislava,Slovakia,48,17,y,y,y
+Ljubljana,Slovenia,46,15,y,y,y
+Barcelona,Spain,41,2,y,y,y
+Madrid,Spain,40,-4,y,y,y
+Seville,Spain,37,-6,y,y,y
+Stockholm,Sweden,59,18,y,y,y
+Zurich,Switzerland,47,9,y,y,y
+Geneva,Switzerland,46,6,y,y,y
+Edinburgh,United Kingdom,56,-3,y,y,y
+London,United Kingdom,51,-1,y,y,y

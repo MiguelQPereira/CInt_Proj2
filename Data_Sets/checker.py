@@ -1,7 +1,7 @@
 import pandas as pd
 
 GENERATE = 0
-MODE = 1
+MODE = 2
 
 # Function to read the CSV file, check for duplicates, and sort by country
 def process_cities_csv(file_path):
@@ -79,11 +79,34 @@ def generate_matrix_csv(file_path):
     
     print(f"Matrix saved to matrix.csv")
 
+def complete_matriz (file_path):
+    # Read the CSV file containing the matrix
+    df = pd.read_csv(file_path, header=None)
+    # Convert the DataFrame to a matrix (list of lists) for easier manipulation
+    matrix = df.values.tolist()
+    
+    # Get the number of cities (assuming square matrix, excluding header row/column)
+    num_cities = len(matrix) - 1  # Exclude the header row and column
+    
+    # Mirror the lower triangle to the upper triangle
+    for i in range(1, num_cities + 1):  # Skip first row (headers)
+        for j in range(1, i):  # Only look at the lower triangle where i > j
+            matrix[j][i] = matrix[i][j]  # Copy lower half to upper half
+    
+    # Convert the matrix back to a DataFrame
+    mirrored_df = pd.DataFrame(matrix)
+    
+    # Save the updated matrix to a new CSV file
+    mirrored_df.to_csv(file_path, index=False, header=False)
+    
+    print(f"Matrix with mirrored lower triangle saved to {file_path}")
 
 
 # Example of how to call the function with a CSV file
-file_path = 'cities.csv'  # Replace with the actual file path
+file_path = 'costtrain.csv'  # Replace with the actual file path
 if (MODE == 0):
     process_cities_csv(file_path)
 elif (MODE == 1):
     generate_matrix_csv(file_path)
+elif (MODE == 2):
+    complete_matriz(file_path)
