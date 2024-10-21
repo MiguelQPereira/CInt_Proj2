@@ -1,2 +1,2 @@
 # CInt_Project2
-Second project of  Applied Computational Intelligence
+Second project of Applied Computational Intelligence
