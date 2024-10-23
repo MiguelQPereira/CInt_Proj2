@@ -76,47 +76,19 @@ def evaluatePopulation(matrix, population):
     fitness = [routeCost(route, matrix) for route in population]
     return np.array(fitness)
 
-#roulette wheel selection for parents
-def rouletteWheelSelection(population, fitness):
-    selected = []
-    probabilities = []
-    isDuplicate = False
-    parentNumber = 0
-
-    #inverted fitness and fitsum because this is a minimization problem
-    invFitness = [1/f for f in fitness]
-    fitSum = sum(invFitness)
-
-    #calculate the probabilities of each parent
-    for i in range(len(population)):
-        probabilities.append(invFitness[i]/fitSum)
-
-
-    #select parents randomly, parents with better fitness have more likelyhood of being chosen, at least half the parents must be chosen
-    i = 0
-    while parentNumber < len(population):
-        randomNumber = random.random()
-        if probabilities[i] >= randomNumber:
-            #if len(selected) != 0:
-            for j in range(len(selected)):
-                if np.array_equal(population[i], selected[j]):
-                    isDuplicate = True
-            if isDuplicate == False:
-                selected.append(population[i])
-                parentNumber += 1
-        i += 1
-        isDuplicate = False
-        if i >= len(population):
-            i = 0
-
-    return selected
-
 def tournamentSelection(population, fitness, tournament_size=2):
     selected = []
-    for _ in range(int(len(population)/2)):
+    participants = [0, 0]
+    tournament_length = int(len(population)/2)
+
+    for _ in range(tournament_length):
         participants = np.random.choice(len(population), tournament_size)
+        while participants[0] == participants[1]:
+            participants = np.random.choice(len(population), tournament_size)
         best = participants[np.argmin(fitness[participants])]
         selected.append(population[best])
+        population = np.delete(population, participants, axis=0)
+
     return selected
 
 #crossover parents with uniform crossover
@@ -125,7 +97,7 @@ def uniformCrossover(parents, popLen, probability):
     offsprings = np.zeros((popLen, parentSize), dtype=int)
 
     #create kids
-    for i in range(0, popLen, 2):
+    for i in range(0, int(popLen/2), 2):
         for j in range(parentSize):
             randomNumber = random.random()
             if probability >= randomNumber:
@@ -136,6 +108,49 @@ def uniformCrossover(parents, popLen, probability):
                 offsprings[i+1][j] = parents[i][j]
     
     return offsprings  
+
+def orderCrossover(parents, pop_len):
+
+    pop_len = int(pop_len/2)
+    parents_size = len(parents[0])
+    offsprings = np.full((pop_len, parents_size), 1e6, dtype=int)
+    
+
+    #generate lower bound and upper bound so that a random segment of half the parent's length is selected
+    lb = int(random.randint(0, int(parents_size/2)))
+    ub = int(lb + parents_size/2)
+
+    #iterate for every child
+    for i in range(pop_len-1):
+        #iterate over the values from the first parent
+        for j in range(lb, ub):
+            offsprings[i][j] = parents[i][j] 
+        #now fill the remaining values of the kid with the values from the second parent
+        for j in range(parents_size):
+            #if value hasnt been filled yet, fill with a parents value
+            if offsprings[i][j] == 1e6:
+                #iterate over the second parent's values
+                for k in range(parents_size):
+                    #if the value from the second parent is not in the offspring, then add it
+                    if not np.isin(parents[i+1][k], offsprings[i]):
+                        offsprings[i][j] = parents[i+1][k]
+                        break
+
+    #repeat one last time with the first and last parents in order to achieve 20 offspring
+    for j in range(lb, ub):
+            offsprings[pop_len-1][j] = parents[pop_len-1][j] 
+    #now fill the remaining values of the kid with the values from the second parent
+    for j in range(parents_size):
+        #if value hasnt been filled yet, fill with a parents value
+        if offsprings[pop_len-1][j] == 1e6:
+            #iterate over the second parent's values
+            for k in range(parents_size):
+                #if the value from the second parent is not in the offspring, then add it
+                if not np.isin(parents[0][k], offsprings[pop_len-1]):
+                    offsprings[pop_len-1][j] = parents[0][k]
+                    break  
+
+    return offsprings
 
 #GA for single transport SOO  
 def SingleTransportOptimization(matrix, type, pop_size, n_generations):
@@ -155,7 +170,7 @@ def SingleTransportOptimization(matrix, type, pop_size, n_generations):
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = uniformCrossover(parents, len(population), probability=0.5)
+        offsprings = orderCrossover(parents, len(population))
 
         #evaluate offspring fitness
         offspring_fitness = evaluatePopulation(matrix, offsprings)
@@ -169,7 +184,7 @@ def SingleTransportOptimization(matrix, type, pop_size, n_generations):
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
+        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
 
     return population[0], fitness[0]
     
@@ -212,7 +227,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_gene
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = uniformCrossover(parents, len(population), probability=0.5)
+        offsprings = orderCrossover(parents, len(population))
 
         #evaluate offspring fitness
         offspring_fitness = ThreeTransportEvaluatePopulation(matrices, offsprings)
