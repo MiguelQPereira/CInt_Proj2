@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 #function to load the cost and time functions of the transport methods
-def load_matrix(filename):
+def loadMatrix(filename):
     #read csv with the filename
     df = pd.read_csv(filename, index_col=0)
 
@@ -24,16 +24,16 @@ def load_matrix(filename):
     return df.values
 
 #trims matrixes to remove unwanted cities
-def trim_matrix(matrix, type):
+def trimMatrix(matrix, type):
     indexes = []
-    stationNumber = 0
-    minStations = 5
+    n_stations = 0
+    min_stations = 5
 
     #change maxValue based on type
     if type == "cost":
-        maxValue = 1e6
+        max_value = 1e6
     elif type == "time":
-        maxValue = 12e3
+        max_value = 12e3
     else:
         print("invalid type, please use a valid type")
         exit(1)
@@ -42,37 +42,38 @@ def trim_matrix(matrix, type):
     for col in range(matrix.shape[1]):
         #iterate over rows
         for row in range(matrix.shape[0]):
-            #get the value and see if its lower than maxValue, if it is then add 1 to stationNumber
+            #get the value and see if its lower than maxValue, if it is then add 1 to n_stations
             value = matrix[row, col]
-            if value < maxValue:
-                stationNumber += 1
+            if value < max_value:
+                n_stations += 1
         #if a given city has less than minStations stations with valid times, it gets deleted
-        if stationNumber < minStations:
+        if n_stations < min_stations:
             indexes.append(col)
-        stationNumber = 0
+        n_stations = 0
     matrix = np.delete(matrix, indexes, axis=1)
     matrix = np.delete(matrix, indexes, axis=0)
     return len(matrix), matrix
 
 #generate population based on population size and number of cities
-def generate_population(pop_size, n_cities):
+def generatePopulation(pop_size, n_cities):
     population = [np.random.permutation(n_cities) for _ in range(pop_size)]
     return population
 
-def route_cost(route, matrix):
-    routeCost = 0
+#calculate the route cost (fitness of a route using the cost matrix)
+def routeCost(route, matrix):
+    route_cost = 0
 
     #sum cost values between the cities in the route
     for i in range(len(route) - 1):
-        routeCost += float(matrix[route[i], route[i + 1]])
-    routeCost += float(matrix[route[-1], route[0]])
+        route_cost += float(matrix[route[i], route[i + 1]])
+    route_cost += float(matrix[route[-1], route[0]])
 
     #return the total route cost
-    return routeCost
+    return route_cost
 
 #evaluate fitness of a population
-def evaluate_population(matrix, population):
-    fitness = [route_cost(route, matrix) for route in population]
+def evaluatePopulation(matrix, population):
+    fitness = [routeCost(route, matrix) for route in population]
     return np.array(fitness)
 
 #roulette wheel selection for parents
@@ -110,6 +111,14 @@ def rouletteWheelSelection(population, fitness):
 
     return selected
 
+def tournamentSelection(population, fitness, tournament_size=2):
+    selected = []
+    for _ in range(len(population)):
+        participants = np.random.choice(len(population), tournament_size)
+        best = participants[np.argmin(fitness[participants])]
+        selected.append(population[best])
+    return selected
+
 #crossover parents with uniform crossover
 def uniformCrossover(parents, popLen, probability):
     parentSize = len(parents[0])
@@ -127,28 +136,29 @@ def uniformCrossover(parents, popLen, probability):
                 offsprings[i+1][j] = parents[i][j]
     
     return offsprings  
-     
-def single_transport_optimization(matrix, type, pop_size, n_generations):
+
+#GA for single transport SOO  
+def SingleTransportOptimization(matrix, type, pop_size, n_generations):
     
     #first we discard unwanted cities (cities with low number of stations)
-    n_cities, matrix = trim_matrix(matrix, type)
+    n_cities, matrix = trimMatrix(matrix, type)
 
     #now we generate a population with the trimmed matrix
-    population = generate_population(pop_size, n_cities)
+    population = generatePopulation(pop_size, n_cities)
 
     #evaluate the fitness of the starting population
-    fitness = evaluate_population(matrix, population)
+    fitness = evaluatePopulation(matrix, population)
 
     #now we begin the genetic algorithm loop
     for generation in range(n_generations):
         #select the parents
-        parents = rouletteWheelSelection(population, fitness)
+        parents = tournamentSelection(population, fitness)
 
         #create offspring
         offsprings = uniformCrossover(parents, len(population), probability=0.5)
 
         #evaluate offspring fitness
-        offspring_fitness = evaluate_population(matrix, offsprings)
+        offspring_fitness = evaluatePopulation(matrix, offsprings)
 
         #combine parents and kids
         combined_population = np.concatenate((population, offsprings))
@@ -159,19 +169,76 @@ def single_transport_optimization(matrix, type, pop_size, n_generations):
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
 
     return population[0], fitness[0]
     
+#calculate the route cost based on the three matrices, alwats choosing the smallest value out of the three
+def ThreeTransportRouteCost(route, matrices):
+    route_cost = 0
+
+    #for each part of the route, we calculate the three fitnesses from the matrices, then see which is the smallest and use that
+    for i in range(len(route) - 1):
+        #get the three costs
+        costs = [float(matrices[j][route[i], route[i + 1]]) for j in range(3)]
+        #sum the lowest cost to the route_cost
+        route_cost += min(costs)
+    #repeat for the first value
+    costs = [float(matrices[j][route[-1], route[0]]) for j in range(3)]
+    route_cost += min(costs)
+
+    return route_cost
+
+#evaluate fitness of a population based on the three transports
+def ThreeTransportEvaluatePopulation(matrices, population):
+    fitness = [ThreeTransportRouteCost(route, matrices) for route in population]
+    return np.array(fitness)
+
+#GA for three transport SOO  
+def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_generations):
+
+    matrices = np.array([matrix1, matrix2, matrix3])
+    n_cities = 50
+
+    #now we generate a population
+    population = generatePopulation(pop_size, n_cities)
+
+    #evaluate the fitness of the three starting populations at the same time
+    fitness = ThreeTransportEvaluatePopulation(matrices, population)
+
+    #now we begin the genetic algorithm loop
+    for generation in range(n_generations):
+        #select the parents
+        parents = tournamentSelection(population, fitness)
+
+        #create offspring
+        offsprings = uniformCrossover(parents, len(population), probability=0.5)
+
+        #evaluate offspring fitness
+        offspring_fitness = ThreeTransportEvaluatePopulation(matrices, offsprings)
+
+        #combine parents and kids
+        combined_population = np.concatenate((population, offsprings))
+        combined_fitness = np.concatenate((fitness, offspring_fitness))
+
+        #get the best individuals, best individual is stored in population[0] and fitness[0]
+        best_indices = np.argsort(combined_fitness)[:pop_size]
+        population = [combined_population[i] for i in best_indices]
+        fitness = combined_fitness[best_indices]
+
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
+
+    return population[0], fitness[0]
+
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
-def single_objective_genetic_algorithm(matrix1, matrix2, matrix3, type, pop_size=40, n_generations=250):
+def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size=40, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) == 0) & (isinstance(matrix3, np.ndarray) == 0):
-        best_solution, best_fitness = single_transport_optimization(matrix1, type, pop_size, n_generations)
+        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0):
-        best_solution, best_fitness = three_transport_optimization(matrix1, matrix2, matrix3, type, pop_size, n_generations)
+        best_solution, best_fitness = ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send only matrix 1 for single transport optimization or all 3 for 3 transport optimization")
         exit(1)
