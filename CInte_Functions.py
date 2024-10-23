@@ -113,7 +113,7 @@ def rouletteWheelSelection(population, fitness):
 
 def tournamentSelection(population, fitness, tournament_size=2):
     selected = []
-    for _ in range(len(population)):
+    for _ in range(int(len(population)/2)):
         participants = np.random.choice(len(population), tournament_size)
         best = participants[np.argmin(fitness[participants])]
         selected.append(population[best])
