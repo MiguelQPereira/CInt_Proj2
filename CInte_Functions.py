@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import time
 import random
 
 #function to load the cost and time functions of the transport methods
@@ -109,48 +110,103 @@ def uniformCrossover(parents, popLen, probability):
     
     return offsprings  
 
-def orderCrossover(parents, pop_len):
+def orderCrossover1(parents, pop_len):
+    
+    parents_size = len(parents[0])
+    offsprings = np.full((int(pop_len/2), parents_size), 1e6, dtype=int)
+    
+    #generate lower bound and upper bound so that a random segment of half the parent's length is selected
+    lb = int(random.randint(0, int(parents_size / 2)))
+    ub = int(lb + parents_size / 2)
+    
+    #iterate for every child
+    for i in range(0, int(pop_len/2)):
+        #select parents
+        parent1 = parents[i]
+        parent2 = parents[(i + 1) % len(parents)]
 
-    pop_len = int(pop_len/2)
+        #place parent1 values in child
+        offsprings[i, lb:ub] = parent1[lb:ub]
+        
+        #this will be used to know what elements from each parent are aleady in the child
+        existing_elements1 = set(offsprings[i, lb:ub])
+        
+        #now fill the rest of the child with the other parent's values
+        pos = 0
+        for j in range(parents_size):
+            #skip the part that has been filled already
+            if pos == lb:  
+                pos = ub
+            #put second parent's values in child while verifying that they arent already in the child
+            if parent2[j] not in existing_elements1:
+                offsprings[i, pos] = parent2[j]
+                pos += 1
+
+    return offsprings
+
+def orderCrossover2(parents, pop_len):
+    
     parents_size = len(parents[0])
     offsprings = np.full((pop_len, parents_size), 1e6, dtype=int)
     
-
     #generate lower bound and upper bound so that a random segment of half the parent's length is selected
-    lb = int(random.randint(0, int(parents_size/2)))
-    ub = int(lb + parents_size/2)
-
+    lb = int(random.randint(0, int(parents_size / 2)))
+    ub = int(lb + parents_size / 2)
+    
     #iterate for every child
-    for i in range(pop_len-1):
-        #iterate over the values from the first parent
-        for j in range(lb, ub):
-            offsprings[i][j] = parents[i][j] 
-        #now fill the remaining values of the kid with the values from the second parent
-        for j in range(parents_size):
-            #if value hasnt been filled yet, fill with a parents value
-            if offsprings[i][j] == 1e6:
-                #iterate over the second parent's values
-                for k in range(parents_size):
-                    #if the value from the second parent is not in the offspring, then add it
-                    if not np.isin(parents[i+1][k], offsprings[i]):
-                        offsprings[i][j] = parents[i+1][k]
-                        break
+    for i in range(0, int(pop_len/2)):
+        #select parents
+        parent1 = parents[i]
+        parent2 = parents[(i + 1) % len(parents)]
 
-    #repeat one last time with the first and last parents in order to achieve 20 offspring
-    for j in range(lb, ub):
-            offsprings[pop_len-1][j] = parents[pop_len-1][j] 
-    #now fill the remaining values of the kid with the values from the second parent
-    for j in range(parents_size):
-        #if value hasnt been filled yet, fill with a parents value
-        if offsprings[pop_len-1][j] == 1e6:
-            #iterate over the second parent's values
-            for k in range(parents_size):
-                #if the value from the second parent is not in the offspring, then add it
-                if not np.isin(parents[0][k], offsprings[pop_len-1]):
-                    offsprings[pop_len-1][j] = parents[0][k]
-                    break  
+        #place parent1 values in child
+        offsprings[(i*2), lb:ub] = parent1[lb:ub]
+        #place parent2 values in next child
+        offsprings[(i*2)+1, lb:ub] = parent2[lb:ub]
+        
+        #this will be used to know what elements from each parent are aleady in the child
+        existing_elements1 = set(offsprings[(i*2), lb:ub])
+        existing_elements2 = set(offsprings[(i*2)+1, lb:ub])
+        
+        #now fill the rest of the child with the other parent's values
+        pos = 0
+        for j in range(parents_size):
+            #skip the part that has been filled already
+            if pos == lb:  
+                pos = ub
+            #put second parent's values in child while verifying that they arent already in the child
+            if parent2[j] not in existing_elements1:
+                offsprings[(i*2), pos] = parent2[j]
+                pos += 1
+        pos = 0
+        for j in range(parents_size):
+            #skip the part that has been filled already
+            if pos == lb:  
+                pos = ub
+            #put second parent's values in child while verifying that they arent already in the child
+            if parent1[j] not in existing_elements2:
+                offsprings[(i*2)+1, pos] = parent1[j]
+                pos += 1
 
     return offsprings
+
+def swapMutation(offsprings, probability):
+    pop_size = len(offsprings)
+    offspring_size = len(offsprings[0])
+
+    #iterate for every child
+    for i in range(pop_size):
+        random_number = random.random()
+        for j in range(0, offspring_size, 2):
+            if random_number > probability:
+                break
+            temp = offsprings[i][j]
+            offsprings[i][j] = offsprings[i][(j+1) % offspring_size]
+            offsprings[i][(j+1) % offspring_size] = temp
+
+    return offsprings
+
+    
 
 #GA for single transport SOO  
 def SingleTransportOptimization(matrix, type, pop_size, n_generations):
@@ -170,7 +226,10 @@ def SingleTransportOptimization(matrix, type, pop_size, n_generations):
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = orderCrossover(parents, len(population))
+        offsprings = orderCrossover1(parents, len(population))
+
+        #apply mutation to offspring
+        offsprings = swapMutation(offsprings, probability=0.5)
 
         #evaluate offspring fitness
         offspring_fitness = evaluatePopulation(matrix, offsprings)
@@ -184,7 +243,7 @@ def SingleTransportOptimization(matrix, type, pop_size, n_generations):
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
 
     return population[0], fitness[0]
     
@@ -227,7 +286,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_gene
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = orderCrossover(parents, len(population))
+        offsprings = orderCrossover1(parents, len(population))
 
         #evaluate offspring fitness
         offspring_fitness = ThreeTransportEvaluatePopulation(matrices, offsprings)
@@ -246,7 +305,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_gene
     return population[0], fitness[0]
 
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
-def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size=40, n_generations=250):
+def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size=50, n_generations=500):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
