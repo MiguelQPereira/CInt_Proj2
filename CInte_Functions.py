@@ -206,8 +206,6 @@ def swapMutation(offsprings, probability):
 
     return offsprings
 
-    
-
 #GA for single transport SOO  
 def SingleTransportOptimization(matrix, type, pop_size, n_generations):
     
