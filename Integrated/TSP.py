@@ -81,7 +81,7 @@ if (SIZE == 0):
     size = [10, 30, 50]
 else:
     size = [SIZE]
-if (OBJECTIVE == 'all'):
+if (OBJECTIVE == 'all' and PROBLEM != 'multi'):
     objective = ['cost', 'time']
 else:
     objective = [OBJECTIVE]

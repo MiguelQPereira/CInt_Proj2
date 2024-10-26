@@ -330,7 +330,13 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
 def multiEvaluationSingle(matrix1,matrix2, population):
     fitness1 = [routeCost(route, matrix1) for route in population]
     fitness2 = [routeCost(route, matrix2) for route in population]
-    fitness = [(f1, f2) for f1, f2 in zip(fitness1, fitness2)]
+    fitness = [[f1, f2] for f1, f2 in zip(fitness1, fitness2)]
+    return fitness
+
+def multiThreeTransportEvaluatePopulation(matrices1, matrices2, population):
+    fitness1 = [ThreeTransportRouteCost(route, matrices1) for route in population]
+    fitness2 = [ThreeTransportRouteCost(route, matrices2) for route in population]
+    fitness = [[f1, f2] for f1, f2 in zip(fitness1, fitness2)]
     return fitness
 
 def pareto_fronts(population, fitness_scores):
@@ -355,22 +361,21 @@ def pareto_fronts(population, fitness_scores):
 
         fronts.append(front)
         remaining_indices -= set(front)  # Remove individuals in the current front from remaining
-    print('Fronts', fronts)
     return fronts
 
 def findExtremities(front, scores):
-    extremes = [1000000, -1]
-
+    min_idx = front[0]
+    max_idx = front[0]
     for idx in front:
-        if (extremes[0] < scores[idx, 1]):
-            extremes[0] = idx
-        if (extremes[1] > scores[idx, 1]):
-            extremes[1] = idx
+        if scores[idx][1] < scores[min_idx][1]:  # Update min based on the score's second objective
+            min_idx = idx
+        if scores[idx][1] > scores[max_idx][1]:  # Update max based on the score's second objective
+            max_idx = idx
 
-    return extremes
+    return [min_idx, max_idx]
 
 def computeCuboids (front, scores):
-    combined = list(zip(scores[1], scores[2], front))
+    combined = list(zip([scores[idx][0] for idx in front], [scores[idx][1] for idx in front], front))
 
     # Sort combined based on the first vector (vector1)
     combined.sort(key=lambda x: x[0])  # Sort by the first element of the tuples
@@ -383,36 +388,48 @@ def computeCuboids (front, scores):
     sorted_time = list(sorted_time)
     cuboide = []
     for i in range(len(sorted_front)):
-        if i == 0:
-            cuboide[i] = 1000000
-        elif i ==len(sorted_front)-1:
-            cuboide[i] = 1000000
+        if i == 0 or i == len(sorted_front) - 1:
+            cuboide.append(1000000)  # Append boundary value for edges
+        else:
+            cuboide.append((sorted_cost[i+1] - sorted_cost[i-1]) * (sorted_time[i+1] - sorted_time[i-1]))
         
-        
+    return cuboide
 
-    return
-
-def nsga_ii_selection(population, fitness_scores): 
+def nsga_ii_selection(population, fitness_scores, cities): 
     """
     Implements NSGA-II selection for multi-objective optimization.
     """
-    n_parents = len(population)/2
+    n_parents = cities
     fronts = pareto_fronts(population, fitness_scores)
     selected_indices = []
 
     for front in fronts:
         if len(front) <= n_parents - len(selected_indices):
-            selected_indices.append(front[:])
+            selected_indices.extend(front)
             break
 
         extremes = findExtremities(front, fitness_scores)
         
         if n_parents - len(selected_indices) == 1:
-            selected_indices.append(extremes[random.randint(0,1)])
+            selected_indices.append(extremes[random.randint(0, 1)])
         elif n_parents - len(selected_indices) == 2:
-            selected_indices.append(extremes[:])
+            selected_indices.extend(extremes)
         else:
+            missing_elements = n_parents - len(selected_indices)
             cuboids = computeCuboids(front, fitness_scores)
+            combined = list(zip(cuboids, [fitness_scores[idx][0] for idx in front], [fitness_scores[idx][1] for idx in front], front))
+
+            # Sort combined based on the first vector (vector1)
+            combined.sort(key=lambda x: x[0], reverse=True)  # Sort by the first element of the tuples
+
+            # Unzip the sorted combined list back into separate vectors
+            sorted_cuboids, sorted_cost, sorted_time, sorted_front = zip(*combined)
+            sorted_cuboids = list(sorted_cuboids)
+            sorted_front = list(sorted_front)
+            sorted_cost = list(sorted_cost)
+            sorted_time = list(sorted_time)
+
+            selected_indices.extend(sorted_front[0:missing_elements])
 
     selected_population = [population[i] for i in selected_indices]
     return selected_population
@@ -425,34 +442,75 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     pop_size = 50
 
     # Evaluate the fitness of the starting population
-    fitness = multiEvaluationSingle(matrix1, matrix2, population)
-    
+    fitness = multiEvaluationSingle(cost1, cost2, population)
     for generation in range(n_generations):
         # Select the parents
-        parents = nsga_ii_selection(population, fitness)
-
+        parents = nsga_ii_selection(population, fitness, cities//2)
         # Create offspring
         offsprings = orderCrossover(parents, len(parents))
 
         # Evaluate offspring fitness
-        offspring_fitness = multiEvaluationSingle(matrix1, matrix2, offsprings)
-        
+        offspring_fitness = multiEvaluationSingle(cost1, cost2, offsprings)
         # Combine parents and offspring
-        combined_population = np.concatenate((population, offsprings))
-        combined_fitness = np.concatenate((fitness, offspring_fitness))
+        combined_population = population.copy()
+        combined_population.extend(offsprings)
+        combined_fitness = fitness.copy()
+        combined_fitness.extend(offspring_fitness)
 
         # Get the best individuals
-        best_indices = np.argsort(combined_fitness)[:pop_size]
-        population = [combined_population[i] for i in best_indices]
-        fitness = combined_fitness[best_indices]
+        # Get the best individuals using NSGA-II selection
+        population = nsga_ii_selection(combined_population, combined_fitness, cities)
+        
+        # Recompute fitness for the new population
+        fitness = multiEvaluationSingle(cost1, cost2, population)
+        
 
         print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
     
     return population[0], fitness[0]
 
-def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size, n_generations):
+def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
+    #remove the last cities of each matrix according to n_cities
+    if cities < 50:
+        matrix1 = matrix1[:, :-(50-cities)]
+        matrix2 = matrix2[:, :-(50-cities)]
+        matrix3 = matrix3[:, :-(50-cities)]
+        matrix4 = matrix4[:, :-(50-cities)]
+        matrix5 = matrix5[:, :-(50-cities)]
+        matrix6 = matrix6[:, :-(50-cities)]
 
-    return
+    #group all 3 matrices
+    matrices1 = [matrix1, matrix3, matrix5]
+    matrices2 = [matrix2, matrix4, matrix6]
+
+    #now we generate a population
+    population = generatePopulation(cities, 50)
+
+    #evaluate the fitness of the three starting populations at the same time
+    fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, population)
+
+    for generation in range(n_generations):
+        # Select the parents
+        parents = nsga_ii_selection(population, fitness, cities//2)
+        # Create offspring
+        offsprings = orderCrossover(parents, len(parents))
+
+        # Evaluate offspring fitness
+        offspring_fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, offsprings)
+        # Combine parents and offspring
+        combined_population = population.copy()
+        combined_population.extend(offsprings)
+        combined_fitness = fitness.copy()
+        combined_fitness.extend(offspring_fitness)
+
+        # Get the best individuals
+        # Get the best individuals using NSGA-II selection
+        population = nsga_ii_selection(combined_population, combined_fitness, cities)
+        
+        # Recompute fitness for the new population
+        fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, population)
+
+    return population[0], fitness[0]
 
 def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
@@ -461,12 +519,12 @@ def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, 
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) == 0) & (isinstance(matrix4, np.ndarray) == 0) & (isinstance(matrix5, np.ndarray) == 0)& (isinstance(matrix6, np.ndarray) == 0):
         best_solution, best_fitness = SingleTransportMultiOptimization(matrix1, matrix2, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) != 0) & (isinstance(matrix4, np.ndarray) != 0) & (isinstance(matrix5, np.ndarray) != 0)& (isinstance(matrix6, np.ndarray) != 0):
-        best_solution, best_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, pop_size, n_generations)
+        best_solution, best_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send matrix 2 for single transport optimization or all 6 for 3 transport optimization")
-        exit(1)
+        exit(1) 
 
     print("Final route:", best_solution)
     print("Final objective:", best_fitness)
 
-    return best_solution, best_fitnessorderCrossover
+    return best_solution, best_fitness
