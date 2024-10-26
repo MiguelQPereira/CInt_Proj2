@@ -84,7 +84,7 @@ if (OBJECTIVE == 'all'):
 else:
     objective = [OBJECTIVE]
 if (TRANSPORT == 'all'):
-    transport = ['bus', 'train', 'plane', 'all']
+    transport = ['all']
 else:
     transport = [TRANSPORT]
 
@@ -112,5 +112,12 @@ for p in problem:
                             ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, o, s)
                         else:
                             ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, o, s)
-                else:
-                    z = 0
+                elif (p == 'multi'):
+                    if t == "bus":
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, o, s)
+                    elif t == 'train':
+                        ci.MultiObjectiveGeneticAlgorithm(cost_train, time_train, 0, 0, 0, 0, o, s)
+                    elif t == 'plane':
+                        ci.MultiObjectiveGeneticAlgorithm(cost_plane, time_plane, 0, 0, 0, 0, o, s)
+                    else:
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, cost_train, time_train, cost_plane, time_plane, o, s)
