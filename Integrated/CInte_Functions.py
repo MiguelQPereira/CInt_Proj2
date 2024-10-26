@@ -35,7 +35,7 @@ def trimMatrix(matrix, n_cities, type):
     if type == "cost":
         max_value = 1e6
     elif type == "time":
-        max_value = 1e4
+        max_value = 2e2
     else:
         print("invalid type, please use a valid type")
         exit(1)
