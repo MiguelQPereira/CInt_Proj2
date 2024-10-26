@@ -2,7 +2,7 @@ import sys
 import os
 
 import CInte_Functions as ci
-import Multi_Objective as mo
+
 
 # Initialize default values
 PROBLEM = 'all'  # Defines wich problem to solve
@@ -58,11 +58,13 @@ while i < len(args):
     
     i += 1
 
-# Load Data
+#load Data
+
+#xy coordinates matrix
+xy = ci.loadMatrix(f"{DATA}/xy.csv", "not applicable")
 
 #bus matrices
 cost_bus = ci.loadMatrix(f"{DATA}/costbus.csv", 'cost')
-print(cost_bus)
 time_bus = ci.loadMatrix(f"{DATA}/timebus.csv", 'time')
 #plane matrices
 cost_plane = ci.loadMatrix(f"{DATA}/costplane.csv", 'cost')
@@ -96,28 +98,28 @@ for p in problem:
                 if p == 'single':
                     if o == 'cost':
                         if t == 'bus':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_bus, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_bus, 0, 0, xy, o, "bus", s)
                         elif t == 'train':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_train, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_train, 0, 0, xy, o, "train", s)
                         elif t == 'plane':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, xy, o, "plane", s)
                         else:
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, o, "all", s)
                     elif o == 'time':
                         if t == 'bus':
-                            ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, xy, o, "bus", s)
                         elif t == 'train':
-                            ci.SingleObjectiveGeneticAlgorithm(time_train, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(time_train, 0, 0, xy, o, "train", s)
                         elif t == 'plane':
-                            ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, xy, o, "plane", s)
                         else:
-                            ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, o, s)
+                            ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, xy, o, "all", s)
                 elif (p == 'multi'):
                     if t == "bus":
-                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, o, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, s)
                     elif t == 'train':
-                        ci.MultiObjectiveGeneticAlgorithm(cost_train, time_train, 0, 0, 0, 0, o, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_train, time_train, 0, 0, 0, 0, s)
                     elif t == 'plane':
-                        ci.MultiObjectiveGeneticAlgorithm(cost_plane, time_plane, 0, 0, 0, 0, o, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_plane, time_plane, 0, 0, 0, 0, s)
                     else:
-                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, cost_train, time_train, cost_plane, time_plane, o, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, cost_train, time_train, cost_plane, time_plane, s)

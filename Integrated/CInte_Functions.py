@@ -2,6 +2,10 @@ import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 import numpy as np
 import random
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+random.seed(42) 
+np.random.seed(42)
 
 #function to load the cost and time functions of the transport methods
 def loadMatrix(filename, obj):
@@ -16,14 +20,16 @@ def loadMatrix(filename, obj):
             df[col_name] = df[col_name].astype(float)  # Convert the column to float
     elif (obj == "time"):
         df.replace("-", "200", inplace=True)
+    elif (obj == "not applicable"):
+        #return the dataframe without the country
+        df = pd.read_csv(filename)
+        return df.drop(columns=df.columns[0])
                 
     return df.values
 
 #trims matrixes to remove unwanted cities
-def trimMatrix(matrix, type):
+def trimMatrix(matrix, n_cities, type):
     indexes = []
-    n_stations = 0
-    min_stations = 5
 
     #change maxValue based on type
     if type == "cost":
@@ -36,23 +42,36 @@ def trimMatrix(matrix, type):
 
     #iterate over columns
     for col in range(matrix.shape[1]):
+        empty = True
         #iterate over rows
         for row in range(matrix.shape[0]):
-            #get the value and see if its lower than maxValue, if it is then add 1 to n_stations
-            value = matrix[row, col]
+            value = float(matrix[row, col])
             if value < max_value:
-                n_stations += 1
-        #if a given city has less than minStations stations with valid times, it gets deleted
-        if n_stations < min_stations:
+                #if any value is less than max, then its not an empty city
+                empty = False
+        
+        #after checking all of a city's values, see if its emtpy, if it is then place its index in the indexes variable
+        if empty == True:
             indexes.append(col)
-        n_stations = 0
+
+    #delete empty cities from the matrix
     matrix = np.delete(matrix, indexes, axis=1)
     matrix = np.delete(matrix, indexes, axis=0)
-    return len(matrix), matrix
+
+    #if the matrix has less cities than the number of cities specified, give error
+    if len(matrix) < n_cities:
+        print(f"error, matrix does not have {n_cities} non-empty cities, please lower the number of cities (-s n_cities)")
+        exit(1)
+    #if the matrix still has more cities than specified by the user, delete the last 
+    elif len(matrix) > n_cities:
+        n_columns = len(matrix) - n_cities
+        matrix = matrix[:, :-n_columns]
+        
+    return matrix   
 
 #generate population based on population size and number of cities
-def generatePopulation(pop_size):
-    population = [np.random.permutation(pop_size) for _ in range(pop_size)]
+def generatePopulation(n_cities, pop_size):
+    population = [np.random.permutation(n_cities) for _ in range(pop_size)]
     return population
 
 #calculate the route cost (fitness of a route using the cost matrix)
@@ -87,76 +106,47 @@ def tournamentSelection(population, fitness, tournament_size=2):
 
     return selected
 
-#crossover parents with uniform crossover
-def uniformCrossover(parents, popLen, probability):
-    parentSize = len(parents[0])
-    offsprings = np.zeros((popLen, parentSize), dtype=int)
-
-    #create kids
-    for i in range(0, int(popLen/2), 2):
-        for j in range(parentSize):
-            randomNumber = random.random()
-            if probability >= randomNumber:
-                offsprings[i][j] = parents[i][j]
-                offsprings[i+1][j] = parents[i+1][j]
-            else:
-                offsprings[i][j] = parents[i+1][j]
-                offsprings[i+1][j] = parents[i][j]
-    
-    return offsprings  
-
 def orderCrossover(parents, pop_len):
-
-    pop_len = int(pop_len/2)
     parents_size = len(parents[0])
-    offsprings = np.full((pop_len, parents_size), 1e6, dtype=int)
+    offsprings = np.full((int(pop_len/2), parents_size), 1e6, dtype=int)
     
-
     #generate lower bound and upper bound so that a random segment of half the parent's length is selected
-    lb = int(random.randint(0, int(parents_size/2)))
-    ub = int(lb + parents_size/2)
-
+    lb = int(random.randint(0, int(parents_size / 2)))
+    ub = int(lb + parents_size / 2)
+    
     #iterate for every child
-    for i in range(pop_len-1):
-        #iterate over the values from the first parent
-        for j in range(lb, ub):
-            offsprings[i][j] = parents[i][j] 
-        #now fill the remaining values of the kid with the values from the second parent
-        for j in range(parents_size):
-            #if value hasnt been filled yet, fill with a parents value
-            if offsprings[i][j] == 1e6:
-                #iterate over the second parent's values
-                for k in range(parents_size):
-                    #if the value from the second parent is not in the offspring, then add it
-                    if not np.isin(parents[i+1][k], offsprings[i]):
-                        offsprings[i][j] = parents[i+1][k]
-                        break
+    for i in range(0, int(pop_len/2)):
+        #select parents
+        parent1 = parents[i]
+        parent2 = parents[(i + 1) % len(parents)]
 
-    #repeat one last time with the first and last parents in order to achieve 20 offspring
-    for j in range(lb, ub):
-            offsprings[pop_len-1][j] = parents[pop_len-1][j] 
-    #now fill the remaining values of the kid with the values from the second parent
-    for j in range(parents_size):
-        #if value hasnt been filled yet, fill with a parents value
-        if offsprings[pop_len-1][j] == 1e6:
-            #iterate over the second parent's values
-            for k in range(parents_size):
-                #if the value from the second parent is not in the offspring, then add it
-                if not np.isin(parents[0][k], offsprings[pop_len-1]):
-                    offsprings[pop_len-1][j] = parents[0][k]
-                    break  
+        #place parent1 values in child
+        offsprings[i, lb:ub] = parent1[lb:ub]
+        
+        #this will be used to know what elements from each parent are aleady in the child
+        existing_elements = set(offsprings[i, lb:ub])
+        
+        #now fill the rest of the child with the other parent's values
+        pos = 0
+        for j in range(parents_size):
+            #skip the part that has been filled already
+            if pos == lb:  
+                pos = ub
+            #put second parent's values in child while verifying that they arent already in the child
+            if parent2[j] not in existing_elements:
+                offsprings[i, pos] = parent2[j]
+                pos += 1
 
     return offsprings
 
 #GA for single transport SOO  
-def SingleTransportOptimization(matrix, type, pop_size, n_generations):
+def SingleTransportOptimization(matrix, type, n_cities, pop_size, n_generations):
     
     #first we discard unwanted cities (cities with low number of stations)
-    n_cities, matrix = trimMatrix(matrix, type)
+    matrix = trimMatrix(matrix, n_cities, type)
 
     #now we generate a population with the trimmed matrix
-    population = generatePopulation(pop_size)
-
+    population = generatePopulation(n_cities, pop_size)
 
     #evaluate the fitness of the starting population
     fitness = evaluatePopulation(matrix, population)
@@ -181,7 +171,7 @@ def SingleTransportOptimization(matrix, type, pop_size, n_generations):
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
 
     return population[0], fitness[0]
     
@@ -207,12 +197,19 @@ def ThreeTransportEvaluatePopulation(matrices, population):
     return np.array(fitness)
 
 #GA for three transport SOO  
-def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_generations):
+def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations):
 
+    #remove the last cities of each matrix according to n_cities
+    if n_cities < 50:
+        matrix1 = matrix1[:, :-(50-n_cities)]
+        matrix2 = matrix2[:, :-(50-n_cities)]
+        matrix3 = matrix3[:, :-(50-n_cities)]
+
+    #group all 3 matrices
     matrices = np.array([matrix1, matrix2, matrix3])
 
     #now we generate a population
-    population = generatePopulation(pop_size)
+    population = generatePopulation(n_cities, pop_size)
 
     #evaluate the fitness of the three starting populations at the same time
     fitness = ThreeTransportEvaluatePopulation(matrices, population)
@@ -242,20 +239,83 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_gene
     return population[0], fitness[0]
 
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
-def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size, n_generations=250):
+def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transport, n_cities, pop_size=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) == 0) & (isinstance(matrix3, np.ndarray) == 0):
-        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, pop_size, n_generations)
+        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, n_cities, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0):
-        best_solution, best_fitness = ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_generations)
+        best_solution, best_fitness = ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send only matrix 1 for single transport optimization or all 3 for 3 transport optimization")
         exit(1)
+        
+    #plot the map
+    if n_cities < 50:
+        xy = xy.iloc[:-(50-n_cities)]
+    print(xy)
+        
+    plt.figure(figsize=(12, 8))
+    m = Basemap(projection='mill', llcrnrlat=-60, urcrnrlat=85, llcrnrlon=-180, urcrnrlon=180, resolution='c')  
+    m.drawcoastlines()
+    m.drawcountries()
 
-    print("Final route:", best_solution)
-    print("Final objective:", best_fitness)
+    x, y = m(xy['longitude'].values, xy['latitude'].values)
+    m.scatter(x, y, s=50, color='red', marker='o', zorder=5)
+
+    for i in range(len(best_solution) - 1):
+        # Get the indices of the two cities to connect
+        start_idx = best_solution[i]
+        end_idx = best_solution[i + 1]
+        
+        # Get the coordinates for these cities
+        x_start, y_start = x[start_idx], y[start_idx]
+        x_end, y_end = x[end_idx], y[end_idx]
+        
+        # Plot the line
+        m.plot([x_start, x_end], [y_start, y_end], color='blue', linewidth=2, zorder=4)
+
+    # Annotate cities with names
+    for i, city in enumerate(xy['city']):
+        plt.text(x[i], y[i], city, fontsize=12, ha='right')
+
+    plt.title("City Connections Based on Order Array")
+    plt.show()
+ 
+    #report the results in terminal
+    if type == "cost":
+        if transport == "bus":
+            print(f"Bus final route ({n_cities} cities): {best_solution}")
+            print(f"Bus final cost: €{round(best_fitness, 2)}")
+        elif transport == "train":
+            print(f"Train final route ({n_cities} cities): {best_solution}")
+            print(f"Train final cost: €{round(best_fitness, 2)}")
+        elif transport == "plane":
+            print(f"Plane final route ({n_cities} cities): {best_solution}")
+            print(f"Plane final cost: €{round(best_fitness, 2)}")
+        elif transport == "all":
+            print(f"All transports final route ({n_cities} cities): {best_solution}")
+            print(f"All transports final cost: €{round(best_fitness, 2)}")
+    elif type == "time":
+        if transport == "bus":
+            print(f"Bus final route ({n_cities} cities): {best_solution}")
+            print(f"Bus final time: {int(best_fitness)}h")
+        elif transport == "train":
+            print(f"Train final route ({n_cities} cities): {best_solution}")
+            print(f"Train final time: {int(best_fitness)}h")
+        elif transport == "plane":
+            print(f"Plane final route ({n_cities} cities): {best_solution}")
+            print(f"Plane final time: {int(best_fitness)}h")
+        elif transport == "all":
+            print(f"All transports final route ({n_cities} cities): {best_solution}")
+            print(f"All transports final time: {int(best_fitness)}h")
+    else:
+        print(f"invalid type {type}, please select a valid type (cost, time)")
+        exit(1)
+
+    print("\n#####################################\n")
+
 
     return best_solution, best_fitness
 
@@ -266,107 +326,119 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size, n
 
 def multiEvaluationSingle(matrix1,matrix2, population):
     fitness1 = [routeCost(route, matrix1) for route in population]
-    fitness2 = [routeCost(route, matrix1) for route in population]
-    return fitness1, fitness2
+    fitness2 = [routeCost(route, matrix2) for route in population]
+    fitness = [(f1, f2) for f1, f2 in zip(fitness1, fitness2)]
+    return fitness
 
-def pareto_front(population, fitness_scores):
+def pareto_fronts(population, fitness_scores):
+    fronts = []
+    remaining_indices = set(range(len(fitness_scores)))
+
+    while remaining_indices:
+        front = []
+        for i in remaining_indices:
+            score = np.array(fitness_scores[i])
+            dominated = False
+            for j in remaining_indices:
+                if i == j:
+                    continue  # Skip comparing the individual with itself
+                other_score = np.array(fitness_scores[j])
+                # Check if `other_score` dominates `score`
+                if np.all(other_score <= score) and np.any(other_score < score):
+                    dominated = True
+                    break
+            if not dominated:
+                front.append(i)
+
+        fronts.append(front)
+        remaining_indices -= set(front)  # Remove individuals in the current front from remaining
+    print('Fronts', fronts)
+    return fronts
+
+def findExtremities(front, scores):
+    extremes = [1000000, -1]
+
+    for idx in front:
+        if (extremes[0] < scores[idx, 1]):
+            extremes[0] = idx
+        if (extremes[1] > scores[idx, 1]):
+            extremes[1] = idx
+
+    return extremes
+
+def computeCuboids (front, scores):
+    combined = list(zip(scores[1], scores[2], front))
+
+    # Sort combined based on the first vector (vector1)
+    combined.sort(key=lambda x: x[0])  # Sort by the first element of the tuples
+
+    # Unzip the sorted combined list back into separate vectors
+    sorted_cost, sorted_time, sorted_front = zip(*combined)
+
+    sorted_front = list(sorted_front)
+    sorted_cost = list(sorted_cost)
+    sorted_time = list(sorted_time)
+    cuboide = []
+    for i in range(len(sorted_front)):
+        if i == 0:
+            cuboide[i] = 1000000
+        elif i ==len(sorted_front)-1:
+            cuboide[i] = 1000000
+        
+        
+
+    return
+
+def nsga_ii_selection(population, fitness_scores): 
     """
-    Computes the Pareto front from a population based on fitness scores.
+    Implements NSGA-II selection for multi-objective optimization.
     """
-    pareto_front_indices = []
-    for i, score in enumerate(fitness_scores):
-        dominated = False
-        for j, other_score in enumerate(fitness_scores):
-            if all(o <= s for o, s in zip(other_score, score)) and any(o < s for o, s in zip(other_score, score)):
-                dominated = True
-                break
-        if not dominated:
-            pareto_front_indices.append(i)
-    return pareto_front_indices
+    n_parents = len(population)/2
+    fronts = pareto_fronts(population, fitness_scores)
+    selected_indices = []
 
-def generate_reference_points(num_objectives, divisions):
-    """
-    Generates a set of reference points for NSGA-III.
-    `divisions` parameter controls the spread of points on the Pareto front.
-    """
-    ref_points = []
-    for i in range(divisions + 1):
-        for j in range(divisions + 1 - i):
-            ref_points.append([i / divisions, j / divisions])
-    return np.array(ref_points)
+    for front in fronts:
+        if len(front) <= n_parents - len(selected_indices):
+            selected_indices.append(front[:])
+            break
 
-def nsga_iii_selection(population, fitness_scores, num_selections, divisions):
-    """
-    Implements NSGA-III selection for multi-objective optimization.
-    - `population`: List of individuals
-    - `fitness_scores`: List of [objective1, objective2, ...] pairs for each individual
-    - `num_selections`: Number of individuals to select
-    - `divisions`: Controls the number of reference points (higher values mean more reference points)
-    """
-    # Step 1: Identify the Pareto front
-    pareto_indices = pareto_front(population, fitness_scores)
-    pareto_population = [population[i] for i in pareto_indices]
-    pareto_scores = [fitness_scores[i] for i in pareto_indices]
+        extremes = findExtremities(front, fitness_scores)
+        
+        if n_parents - len(selected_indices) == 1:
+            selected_indices.append(extremes[random.randint(0,1)])
+        elif n_parents - len(selected_indices) == 2:
+            selected_indices.append(extremes[:])
+        else:
+            cuboids = computeCuboids(front, fitness_scores)
 
-    # Step 2: Generate reference points for NSGA-III
-    ref_points = generate_reference_points(len(fitness_scores[0]), divisions)
-
-    # Step 3: Associate individuals with reference points based on distance
-    association = []
-    for score in pareto_scores:
-        # Normalize score to ensure uniform distance measures
-        norm_score = np.array(score) / np.linalg.norm(score)
-        distances = [np.linalg.norm(norm_score - ref_point) for ref_point in ref_points]
-        closest_ref_index = np.argmin(distances)
-        association.append((closest_ref_index, score))
-
-    # Step 4: Perform selection based on reference point associations
-    selected_indices = set()
-    while len(selected_indices) < num_selections:
-        # Group individuals by reference point
-        ref_groups = {}
-        for i, (ref_index, score) in enumerate(association):
-            if ref_index not in ref_groups:
-                ref_groups[ref_index] = []
-            ref_groups[ref_index].append(i)
-
-        # Select one individual per reference point group until reaching selection limit
-        for ref_index, indices in ref_groups.items():
-            if len(selected_indices) >= num_selections:
-                break
-            if indices:
-                chosen = random.choice(indices)
-                selected_indices.add(pareto_indices[chosen])
-
-    # Step 5: Return the selected individuals
     selected_population = [population[i] for i in selected_indices]
     return selected_population
 
-def SingleTransportMultiOptimization(matrix1, matrix2, type, pop_size, n_generations):
+def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
+    cost1 = trimMatrix(matrix1, cities, 'cost')
+    cost2 = trimMatrix(matrix2, cities, 'time')
     
-    #now we generate a population with the trimmed matrix
-    population = generatePopulation(pop_size)
+    population = generatePopulation(cities, 50)
+    pop_size = 50
 
- 
-    #evaluate the fitness of the starting population
+    # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(matrix1, matrix2, population)
-    print(fitness)
-    #now we begin the genetic algorithm loop
+    
     for generation in range(n_generations):
-        #select the parents
-        parents = nsga_iii_selection(population, fitness, pop_size/2, int(pop_size/2))
+        # Select the parents
+        parents = nsga_ii_selection(population, fitness)
 
-        #create offspring
-        offsprings = orderCrossover(parents, len(population))
+        # Create offspring
+        offsprings = orderCrossover(parents, len(parents))
 
-        #evaluate offspring fitness
-        offspring_fitness = multiEvaluationSingle(matrix1, matrix2, population)
-
-        #combine parents and kids
+        # Evaluate offspring fitness
+        offspring_fitness = multiEvaluationSingle(matrix1, matrix2, offsprings)
+        
+        # Combine parents and offspring
         combined_population = np.concatenate((population, offsprings))
         combined_fitness = np.concatenate((fitness, offspring_fitness))
 
-        #get the best individuals, best individual is stored in population[0] and fitness[0]
+        # Get the best individuals
         best_indices = np.argsort(combined_fitness)[:pop_size]
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
@@ -375,18 +447,18 @@ def SingleTransportMultiOptimization(matrix1, matrix2, type, pop_size, n_generat
     
     return population[0], fitness[0]
 
-def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6,type, pop_size, n_generations):
+def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size, n_generations):
 
     return
 
-def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6,type, pop_size, n_generations=250):
+def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) == 0) & (isinstance(matrix4, np.ndarray) == 0) & (isinstance(matrix5, np.ndarray) == 0)& (isinstance(matrix6, np.ndarray) == 0):
-        best_solution, best_fitness = SingleTransportMultiOptimization(matrix1, matrix2,type, pop_size, n_generations)
+        best_solution, best_fitness = SingleTransportMultiOptimization(matrix1, matrix2, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) != 0) & (isinstance(matrix4, np.ndarray) != 0) & (isinstance(matrix5, np.ndarray) != 0)& (isinstance(matrix6, np.ndarray) != 0):
-        best_solution, best_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, type, pop_size, n_generations)
+        best_solution, best_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send matrix 2 for single transport optimization or all 6 for 3 transport optimization")
         exit(1)
@@ -394,4 +466,4 @@ def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, 
     print("Final route:", best_solution)
     print("Final objective:", best_fitness)
 
-    return best_solution, best_fitness
+    return best_solution, best_fitnessorderCrossover
