@@ -304,7 +304,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, type, pop_size, n_gene
     return population[0], fitness[0]
 
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
-def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size=50, n_generations=500):
+def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, type, pop_size=50, n_generations=2000):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
