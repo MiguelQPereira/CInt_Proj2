@@ -104,12 +104,8 @@ def createTSPMap(xy, route, n_cities):
     plt.show()
 
 #generate population based on population size and number of cities
-def generatePopulation(n_cities, pop_size, heuristic):
+def generatePopulation(n_cities, pop_size):
     population = [np.random.permutation(n_cities) for _ in range(pop_size)]
-
-    if isinstance(heuristic, np.ndarray):
-        population[random.randint(0, pop_size-1)] = heuristic
-
     return population
 
 #calculate the route cost (fitness of a route using the cost matrix)
@@ -179,29 +175,12 @@ def orderCrossover(parents, pop_len):
 
 #GA for single transport SOO  
 def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_generations):
-    
-    #add heuristics
-    if type == "cost":
-        if transport == "bus":
-            a = 5
-        elif transport == "train":
-            a = 5
-        elif transport == "plane":
-            heuristic = np.array([20, 11, 25, 3, 29, 24, 16, 26, 28, 21, 6, 9, 4, 2, 19, 8, 10, 27, 18, 12, 17, 5, 1, 15, 23, 0, 7, 22, 14, 13], dtype=int)
-    elif type == "time":
-        if transport == "bus":
-            a = 5
-        elif transport == "train":
-            a = 5
-        elif transport == "plane":
-            a = 5
             
-
     #first we discard unwanted cities (cities with low number of stations)
     matrix = trimMatrix(matrix, n_cities, type)
 
     #now we generate a population with the trimmed matrix
-    population = generatePopulation(n_cities, pop_size, heuristic)
+    population = generatePopulation(n_cities, pop_size)
 
     #evaluate the fitness of the starting population
     fitness = evaluatePopulation(matrix, population)
