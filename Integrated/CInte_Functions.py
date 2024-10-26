@@ -72,7 +72,6 @@ def trimMatrix(matrix, n_cities, type):
 def createTSPMap(xy, route, n_cities):
     if n_cities < 50:
         xy = xy.iloc[:-(50-n_cities)]
-    print(xy)
         
     plt.figure(figsize=(12, 8))
     m = Basemap(projection='mill', llcrnrlat=30, urcrnrlat=70, llcrnrlon=-15, urcrnrlon=45, resolution='l')  
@@ -316,7 +315,7 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         print(f"invalid type {type}, please select a valid type (cost, time)")
         exit(1)
 
-    print("\n#####################################\n")
+    print("#####################################\n")
 
     #plot the map
     createTSPMap(xy, best_solution, n_cities)
