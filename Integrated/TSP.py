@@ -104,7 +104,7 @@ for p in problem:
                         elif t == 'plane':
                             ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, xy, o, "plane", s)
                         else:
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, o, "all", s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, xy, o, "all", s)
                     elif o == 'time':
                         if t == 'bus':
                             ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, xy, o, "bus", s)
