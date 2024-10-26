@@ -23,7 +23,7 @@ def loadMatrix(filename, obj):
     elif (obj == "not applicable"):
         #return the dataframe without the country
         df = pd.read_csv(filename)
-        return df.drop(columns=df.columns[0])
+        return df.drop(columns=df.columns[1])
                 
     return df.values
 
@@ -69,9 +69,47 @@ def trimMatrix(matrix, n_cities, type):
         
     return matrix   
 
+def createTSPMap(xy, route, n_cities):
+    if n_cities < 50:
+        xy = xy.iloc[:-(50-n_cities)]
+    print(xy)
+        
+    plt.figure(figsize=(12, 8))
+    m = Basemap(projection='mill', llcrnrlat=30, urcrnrlat=70, llcrnrlon=-15, urcrnrlon=45, resolution='l')  
+    m.drawcoastlines()
+    m.drawcountries()
+
+    x, y = m(xy['longitude'].values, xy['latitude'].values)
+    m.scatter(x, y, s=50, color='red', marker='o', zorder=5)
+
+    for i in range(len(route) - 1):
+        # Get the indices of the two cities to connect
+        start_idx = route[i]
+        end_idx = route[i + 1]
+        
+        # Get the coordinates for these cities
+        x_start, y_start = x[start_idx], y[start_idx]
+        x_end, y_end = x[end_idx], y[end_idx]
+        
+        # Plot the line
+        m.plot([x_start, x_end], [y_start, y_end], linestyle='--', color='blue', linewidth=2, zorder=4)
+
+    m.plot([x[route[0]], x[route[-1]]], [y[route[0]], y[route[-1]]], linestyle='--', color='blue', linewidth=2, zorder=4)
+
+    # Annotate cities with names
+    for i, city in enumerate(xy['city']):
+        plt.text(x[i], y[i], city, fontsize=12, ha='right')
+
+    plt.title("TSP Graph")
+    plt.show()
+
 #generate population based on population size and number of cities
-def generatePopulation(n_cities, pop_size):
+def generatePopulation(n_cities, pop_size, heuristic):
     population = [np.random.permutation(n_cities) for _ in range(pop_size)]
+
+    if isinstance(heuristic, np.ndarray):
+        population[random.randint(0, pop_size-1)] = heuristic
+
     return population
 
 #calculate the route cost (fitness of a route using the cost matrix)
@@ -140,13 +178,30 @@ def orderCrossover(parents, pop_len):
     return offsprings
 
 #GA for single transport SOO  
-def SingleTransportOptimization(matrix, type, n_cities, pop_size, n_generations):
+def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_generations):
     
+    #add heuristics
+    if type == "cost":
+        if transport == "bus":
+            a = 5
+        elif transport == "train":
+            a = 5
+        elif transport == "plane":
+            heuristic = np.array([20, 11, 25, 3, 29, 24, 16, 26, 28, 21, 6, 9, 4, 2, 19, 8, 10, 27, 18, 12, 17, 5, 1, 15, 23, 0, 7, 22, 14, 13], dtype=int)
+    elif type == "time":
+        if transport == "bus":
+            a = 5
+        elif transport == "train":
+            a = 5
+        elif transport == "plane":
+            a = 5
+            
+
     #first we discard unwanted cities (cities with low number of stations)
     matrix = trimMatrix(matrix, n_cities, type)
 
     #now we generate a population with the trimmed matrix
-    population = generatePopulation(n_cities, pop_size)
+    population = generatePopulation(n_cities, pop_size, heuristic)
 
     #evaluate the fitness of the starting population
     fitness = evaluatePopulation(matrix, population)
@@ -244,44 +299,12 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) == 0) & (isinstance(matrix3, np.ndarray) == 0):
-        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, n_cities, pop_size, n_generations)
+        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, transport, n_cities, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0):
         best_solution, best_fitness = ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send only matrix 1 for single transport optimization or all 3 for 3 transport optimization")
         exit(1)
-        
-    #plot the map
-    if n_cities < 50:
-        xy = xy.iloc[:-(50-n_cities)]
-    print(xy)
-        
-    plt.figure(figsize=(12, 8))
-    m = Basemap(projection='mill', llcrnrlat=-60, urcrnrlat=85, llcrnrlon=-180, urcrnrlon=180, resolution='c')  
-    m.drawcoastlines()
-    m.drawcountries()
-
-    x, y = m(xy['longitude'].values, xy['latitude'].values)
-    m.scatter(x, y, s=50, color='red', marker='o', zorder=5)
-
-    for i in range(len(best_solution) - 1):
-        # Get the indices of the two cities to connect
-        start_idx = best_solution[i]
-        end_idx = best_solution[i + 1]
-        
-        # Get the coordinates for these cities
-        x_start, y_start = x[start_idx], y[start_idx]
-        x_end, y_end = x[end_idx], y[end_idx]
-        
-        # Plot the line
-        m.plot([x_start, x_end], [y_start, y_end], color='blue', linewidth=2, zorder=4)
-
-    # Annotate cities with names
-    for i, city in enumerate(xy['city']):
-        plt.text(x[i], y[i], city, fontsize=12, ha='right')
-
-    plt.title("City Connections Based on Order Array")
-    plt.show()
  
     #report the results in terminal
     if type == "cost":
@@ -316,6 +339,8 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
 
     print("\n#####################################\n")
 
+    #plot the map
+    createTSPMap(xy, best_solution, n_cities)
 
     return best_solution, best_fitness
 
