@@ -5,6 +5,7 @@ import random
 
 #function to load the cost and time functions of the transport methods
 def loadMatrix(filename):
+    
     #read csv with the filename
     df = pd.read_csv(filename, index_col=0)
 
@@ -57,7 +58,7 @@ def trimMatrix(matrix, type):
 
 #generate population based on population size and number of cities
 def generatePopulation(pop_size, n_cities):
-    population = [np.random.permutation(n_cities) for _ in range(pop_size)]
+    population = [np.random.permutation(pop_size) for _ in range(pop_size)] # <<<<<<<<<<<<<<< Mudei
     return population
 
 #calculate the route cost (fitness of a route using the cost matrix)

@@ -1,7 +1,9 @@
 import pandas as pd
+import csv
+import os
 
 GENERATE = 0
-MODE = 2
+MODE = 3
 
 # Function to read the CSV file, check for duplicates, and sort by country
 def process_cities_csv(file_path):
@@ -101,12 +103,48 @@ def complete_matriz (file_path):
     
     print(f"Matrix with mirrored lower triangle saved to {file_path}")
 
+def order_matrix(file_path):
+    # Check if file exists
+    if not os.path.isfile(file_path):
+        print(f"Error: The file '{file_path}' does not exist.")
+    else:
+        # Read the CSV file
+        with open(file_path, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            header = next(reader)  # Read the header
+            rows = list(reader)    # Read the remaining rows
+
+        # Check if the file has rows to sort
+        if not rows:
+            print("The file is empty or has only a header.")
+        else:
+            # Sort rows by the first column (index 0) alphabetically
+            rows.sort(key=lambda x: x[0])
+
+            # Write the sorted data back to the same file
+            with open(file_path, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(header)  # Write the header back
+                writer.writerows(rows)   # Write the sorted rows
+
+            print(f"The file '{file_path}' has been sorted and saved.")
+
+
+def decrease_sparse(file_path):
+    
+    return
+
+
 
 # Example of how to call the function with a CSV file
-file_path = 'costtrain.csv'  # Replace with the actual file path
+file_path = 'cities.csv'  # Replace with the actual file path
 if (MODE == 0):
     process_cities_csv(file_path)
 elif (MODE == 1):
     generate_matrix_csv(file_path)
 elif (MODE == 2):
     complete_matriz(file_path)
+elif (MODE == 3):
+    order_matrix(file_path)
+elif (MODE == 4):
+    decrease_sparse(file_path)
