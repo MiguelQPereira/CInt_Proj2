@@ -104,7 +104,7 @@ for p in problem:
                         elif t == 'plane':
                             ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, xy, o, "plane", s)
                         else:
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, xy, o, "all", s)
+                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, xy, o, "all transports", s)
                     elif o == 'time':
                         if t == 'bus':
                             ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, xy, o, "bus", s)
@@ -113,13 +113,13 @@ for p in problem:
                         elif t == 'plane':
                             ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, xy, o, "plane", s)
                         else:
-                            ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, xy, o, "all", s)
+                            ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, xy, o, "all transports", s)
                 elif (p == 'multi'):
                     if t == "bus":
-                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, xy, "bus", s)
                     elif t == 'train':
-                        ci.MultiObjectiveGeneticAlgorithm(cost_train, time_train, 0, 0, 0, 0, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_train, time_train, 0, 0, 0, 0, xy, "train", s)
                     elif t == 'plane':
-                        ci.MultiObjectiveGeneticAlgorithm(cost_plane, time_plane, 0, 0, 0, 0, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_plane, time_plane, 0, 0, 0, 0, xy, "plane", s)
                     else:
-                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, cost_train, time_train, cost_plane, time_plane, s)
+                        ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, cost_train, time_train, cost_plane, time_plane, xy, "all transports", s)

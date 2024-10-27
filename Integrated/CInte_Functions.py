@@ -69,7 +69,7 @@ def trimMatrix(matrix, n_cities, type):
         
     return matrix   
 
-def createTSPMap(xy, route, n_cities):
+def createTSPMap(xy, route, n_cities, title, save_path):
     if n_cities < 50:
         xy = xy.iloc[:-(50-n_cities)]
         
@@ -99,8 +99,9 @@ def createTSPMap(xy, route, n_cities):
     for i, city in enumerate(xy['city']):
         plt.text(x[i], y[i], city, fontsize=12, ha='right')
 
-    plt.title("TSP Graph")
-    plt.show()
+    plt.title(title)
+    plt.savefig(save_path)
+    print(f"image saved to {save_path}.png")
 
 #generate population based on population size and number of cities
 def generatePopulation(n_cities, pop_size):
@@ -139,19 +140,21 @@ def tournamentSelection(population, fitness, tournament_size=2):
 
     return selected
 
-def orderCrossover(parents, pop_len):
+def orderCrossover(parents):
     parents_size = len(parents[0])
-    offsprings = np.full((int(pop_len/2), parents_size), 1e6, dtype=int)
+    n_parents = len(parents)
+
+    offsprings = np.full((int(n_parents/2), parents_size), 1e6, dtype=int)
     
     #generate lower bound and upper bound so that a random segment of half the parent's length is selected
     lb = int(random.randint(0, int(parents_size / 2)))
     ub = int(lb + parents_size / 2)
     
     #iterate for every child
-    for i in range(0, int(pop_len/2)):
+    for i in range(0, int(n_parents/2)):
         #select parents
-        parent1 = parents[i]
-        parent2 = parents[(i + 1) % len(parents)]
+        parent1 = parents[i*2]
+        parent2 = parents[(i*2 + 1) % len(parents)]
 
         #place parent1 values in child
         offsprings[i, lb:ub] = parent1[lb:ub]
@@ -169,6 +172,22 @@ def orderCrossover(parents, pop_len):
             if parent2[j] not in existing_elements:
                 offsprings[i, pos] = parent2[j]
                 pos += 1
+
+    return offsprings
+
+def swapMutation(offsprings, probability):
+    n_offspring = len(offsprings)
+    offspring_size = len(offsprings[0])
+
+    for i in range(n_offspring):
+        for j in range (0, offspring_size, 2):
+            random_number = random.random()
+            if random_number > probability: 
+                continue
+            else:
+                temp = offsprings[i][j]
+                offsprings[i][j] = offsprings[i][(j+1) % offspring_size]
+                offsprings[i][(j+1) % offspring_size] = temp
 
     return offsprings
 
@@ -190,7 +209,10 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = orderCrossover(parents, len(population))
+        offsprings = orderCrossover(parents)
+
+        #mutation
+        offsprings = swapMutation(offsprings, probability=0.5)
 
         #evaluate offspring fitness
         offspring_fitness = evaluatePopulation(matrix, offsprings)
@@ -256,7 +278,10 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
         parents = tournamentSelection(population, fitness)
 
         #create offspring
-        offsprings = orderCrossover(parents, len(population))
+        offsprings = orderCrossover(parents)
+
+        #mutation
+        offsprings = swapMutation(offsprings, probability=0.5)
 
         #evaluate offspring fitness
         offspring_fitness = ThreeTransportEvaluatePopulation(matrices, offsprings)
@@ -301,7 +326,7 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         elif transport == "plane":
             print(f"Plane final route ({n_cities} cities): {best_solution}")
             print(f"Plane final cost: €{round(best_fitness, 2)}")
-        elif transport == "all":
+        elif transport == "all transports":
             print(f"All transports final route ({n_cities} cities): {best_solution}")
             print(f"All transports final cost: €{round(best_fitness, 2)}")
     elif type == "time":
@@ -314,7 +339,7 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         elif transport == "plane":
             print(f"Plane final route ({n_cities} cities): {best_solution}")
             print(f"Plane final time: {int(best_fitness)}h")
-        elif transport == "all":
+        elif transport == "all transports":
             print(f"All transports final route ({n_cities} cities): {best_solution}")
             print(f"All transports final time: {int(best_fitness)}h")
     else:
@@ -324,7 +349,9 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
     print("#####################################\n")
 
     #plot the map
-    createTSPMap(xy, best_solution, n_cities)
+    title = f"{transport}: {type} optimization"
+    save_path = f"{transport}_{type}"
+    createTSPMap(xy, best_solution, n_cities, title, save_path)
 
     return best_solution, best_fitness
 
@@ -473,24 +500,30 @@ def has_duplicates(arr_list):
     return False
 
 def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
+
+    pop_size = 50
     cost1 = trimMatrix(matrix1, cities, 'cost')
     cost2 = trimMatrix(matrix2, cities, 'time')
     
     population = generatePopulation(cities, 50)
     
-    pop_size = 50
     eval = 1
     # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(cost1, cost2, population)
     
     for generation in range(n_generations):
-        print(has_duplicates(population))
         # Select the parents
         parents = nsga_ii_selection(population, fitness, pop_size//2)
+
         # Create offspring
-        offsprings = orderCrossover(parents, len(parents))
+        offsprings = orderCrossover(parents)
+
+        #mutation
+        offsprings = swapMutation(offsprings, probability=0.5)
+
         # Evaluate offspring fitness
         offspring_fitness = multiEvaluationSingle(cost1, cost2, offsprings)
+
         # Combine parents and offspring
         combined_population = population.copy()
         combined_population.extend(offsprings)
@@ -503,14 +536,19 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
         # Recompute fitness for the new population
         fitness = multiEvaluationSingle(cost1, cost2, population)
         
-        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
             eval += 2
         else:
             break
     fronts = pareto_fronts(fitness)
     plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
-    return population[0], fitness[0]
+
+    #get the routes and values in the pareto front
+    pareto_front_routes = [population[i] for i in fronts[0]]
+    pareto_front_fitness = [fitness[i] for i in fronts[0]] 
+
+    return pareto_front_routes, pareto_front_fitness
 
 def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
     #remove the last cities of each matrix according to n_cities
@@ -535,8 +573,12 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
     for generation in range(n_generations):
         # Select the parents
         parents = nsga_ii_selection(population, fitness, cities//2)
+
         # Create offspring
-        offsprings = orderCrossover(parents, len(parents))
+        offsprings = orderCrossover(parents)
+
+        #mutation
+        offsprings = swapMutation(offsprings, probability=0.5)
 
         # Evaluate offspring fitness
         offspring_fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, offsprings)
@@ -559,21 +601,43 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
             break
     fronts = pareto_fronts(fitness)
     plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
-    return population[0], fitness[0]
+    
+    #get the routes and values in the pareto front
+    pareto_front_routes = [population[i] for i in fronts[0]]
+    pareto_front_fitness = [fitness[i] for i in fronts[0]] 
 
-def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size=50, n_generations=250):
+    return pareto_front_routes, pareto_front_fitness
+
+def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, xy, transport, n_cities=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) == 0) & (isinstance(matrix4, np.ndarray) == 0) & (isinstance(matrix5, np.ndarray) == 0)& (isinstance(matrix6, np.ndarray) == 0):
-        best_solution, best_fitness = SingleTransportMultiOptimization(matrix1, matrix2, pop_size, n_generations)
+        pareto_routes, pareto_fitness = SingleTransportMultiOptimization(matrix1, matrix2, n_cities, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) != 0) & (isinstance(matrix4, np.ndarray) != 0) & (isinstance(matrix5, np.ndarray) != 0)& (isinstance(matrix6, np.ndarray) != 0):
-        best_solution, best_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size, n_generations)
+        pareto_routes, pareto_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, n_cities, n_generations)
     else:
         print("invalid matrix composition. Send matrix 2 for single transport optimization or all 6 for 3 transport optimization")
         exit(1) 
 
-    print("Final route:", best_solution)
-    print("Final objective:", best_fitness)
+    print(f"{transport} multi-objective optimization:")
+    print("############################################################################################################")
+    for i in range(len(pareto_routes)):
+        print(f"Pareto front element {i}:")
+        print(f"route = {pareto_routes[i]}")
+        print(f"fitnesses (€, Hours) = {pareto_fitness[i]}")
+        print("############################################################################################################")
+        #only plot extremes
+        if i == 0:
+            title = f"{transport}: multi-objective optimization (1st extreme)"
+            save_path = f"{transport}_multi_extreme1"
+            createTSPMap(xy, pareto_routes[i], n_cities, title, save_path)
+        elif i == len(pareto_routes)-1:
+            title = f"{transport}: multi-objective optimization (2nd extreme)"
+            save_path = f"{transport}_multi_extreme2"
+            createTSPMap(xy, pareto_routes[i], n_cities, title, save_path)
+        
+    
+    
 
-    return best_solution, best_fitness
+    return pareto_routes, pareto_fitness
