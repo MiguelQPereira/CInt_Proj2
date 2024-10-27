@@ -174,7 +174,7 @@ def orderCrossover(parents, pop_len):
 
 #GA for single transport SOO  
 def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_generations):
-            
+    conv = []
     #first we discard unwanted cities (cities with low number of stations)
     matrix = trimMatrix(matrix, n_cities, type)
 
@@ -204,12 +204,13 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
+        conv.append(fitness[0])
         #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
             eval += 2
         else:
             break
-    return population[0], fitness[0]
+    return population[0], fitness[0], conv
     
 #calculate the route cost based on the three matrices, alwats choosing the smallest value out of the three
 def ThreeTransportRouteCost(route, matrices):
@@ -234,7 +235,7 @@ def ThreeTransportEvaluatePopulation(matrices, population):
 
 #GA for three transport SOO  
 def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations):
-
+    conv = []
     #remove the last cities of each matrix according to n_cities
     if n_cities < 50:
         matrix1 = matrix1[:, :-(50-n_cities)]
@@ -270,12 +271,14 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
+        conv.append(fitness[0])
+
         #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
             eval += 2
         else:
             break
-    return population[0], fitness[0]
+    return population[0], fitness[0], conv
 
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
 def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transport, n_cities, pop_size=50, n_generations=250):
@@ -283,13 +286,13 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) == 0) & (isinstance(matrix3, np.ndarray) == 0):
-        best_solution, best_fitness = SingleTransportOptimization(matrix1, type, transport, n_cities, pop_size, n_generations)
+        best_solution, best_fitness, conv = SingleTransportOptimization(matrix1, type, transport, n_cities, pop_size, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0):
-        best_solution, best_fitness = ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations)
+        best_solution, best_fitness, conv = ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations)
     else:
         print("invalid matrix composition. Send only matrix 1 for single transport optimization or all 3 for 3 transport optimization")
         exit(1)
- 
+
     #report the results in terminal
     if type == "cost":
         if transport == "bus":
@@ -326,12 +329,12 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
     #plot the map
     createTSPMap(xy, best_solution, n_cities)
 
-    return best_solution, best_fitness
+    return best_fitness, conv
 
 
-##############################################################################
-##############################################################################
-##############################################################################
+############################################################################################################################################################
+############################################################################################################################################################
+############################################################################################################################################################
 
 def multiEvaluationSingle(matrix1,matrix2, population):
     fitness1 = [routeCost(route, matrix1) for route in population]
