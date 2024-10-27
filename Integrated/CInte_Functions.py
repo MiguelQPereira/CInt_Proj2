@@ -377,8 +377,8 @@ def plot_pareto_front(fitness_scores, front_indices, generation=None, save_path=
     # Plot all solutions
     plt.figure(figsize=(10, 6))
     plt.scatter(objective1, objective2, color='blue', label='All Solutions')
-    plt.xlabel('Objective 1 (e.g., Cost)')
-    plt.ylabel('Objective 2 (e.g., Time)')
+    plt.xlabel('Cost')
+    plt.ylabel('Time')
     plt.title(f'Pareto Front{" - Generation " + str(generation) if generation is not None else ""}')
     
     # Highlight Pareto front using front indices
@@ -463,7 +463,7 @@ def nsga_ii_selection(population, fitness_scores, cities):
             add = sorted_front[0:missing_elements]
             selected_indices.extend(add)
     selected_population = [population[i] for i in selected_indices]
-    return selected_population, fronts
+    return selected_population
 
 def has_duplicates(arr_list):
     for i in range(len(arr_list)):
@@ -486,7 +486,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     for generation in range(10):#n_generations):
         print(has_duplicates(population))
         # Select the parents
-        parents, fronts = nsga_ii_selection(population, fitness, pop_size//2)
+        parents = nsga_ii_selection(population, fitness, pop_size//2)
         # Create offspring
         offsprings = orderCrossover(parents, len(parents))
         # Evaluate offspring fitness
@@ -499,7 +499,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
 
         # Get the best individuals
         # Get the best individuals using NSGA-II selection
-        population, fro = nsga_ii_selection(combined_population, combined_fitness, pop_size)
+        population = nsga_ii_selection(combined_population, combined_fitness, pop_size)
         # Recompute fitness for the new population
         fitness = multiEvaluationSingle(cost1, cost2, population)
         
@@ -508,6 +508,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
             eval += 2
         else:
             break
+    fronts = pareto_fronts(fitness)
     plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
     return population[0], fitness[0]
 
@@ -556,7 +557,8 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
             eval += 2
         else:
             break
-
+    fronts = pareto_fronts(fitness)
+    plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
     return population[0], fitness[0]
 
 def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, pop_size=50, n_generations=250):
