@@ -4,8 +4,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
-random.seed(42) 
-np.random.seed(42)
+
 
 #function to load the cost and time functions of the transport methods
 def loadMatrix(filename, obj):
