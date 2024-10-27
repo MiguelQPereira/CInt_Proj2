@@ -271,13 +271,6 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
     #now we generate a population
     population = generatePopulation(n_cities, pop_size)
 
-    if n_cities == 50:
-        population[0] = [20, 11, 25, 38, 3, 29, 26, 24, 16, 49, 28, 45, 6, 9, 4, 40, 39, 43, 32, 37, 48, 21, 36, 44, 2, 19, 8, 10, 47, 27, 46, 35, 42, 18, 41, 30, 12, 17, 5, 1, 33, 15, 23, 0, 7, 31, 22, 14, 34, 13]
-    elif n_cities == 30:
-        population[0] = [20, 11, 25, 3, 29, 26, 24, 16, 28, 6, 9, 4, 21, 2, 19, 8, 10, 27, 18, 12, 17, 5, 1, 15, 23, 0, 7, 22, 14, 13]
-    elif n_cities == 10:
-        population[0] = [3, 6, 9, 4, 2, 8, 5, 1, 0, 7]
-
     #evaluate the fitness of the three starting populations at the same time
     fitness = ThreeTransportEvaluatePopulation(matrices, population)
     eval = len(population)
