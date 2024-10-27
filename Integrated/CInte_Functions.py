@@ -483,7 +483,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(cost1, cost2, population)
     
-    for generation in range(10):#n_generations):
+    for generation in range(n_generations):
         print(has_duplicates(population))
         # Select the parents
         parents = nsga_ii_selection(population, fitness, pop_size//2)
