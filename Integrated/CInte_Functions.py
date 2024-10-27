@@ -5,6 +5,7 @@ import random
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 
+
 #function to load the cost and time functions of the transport methods
 def loadMatrix(filename, obj):
     #read csv with the filename
