@@ -402,7 +402,6 @@ def nsga_ii_selection(population, fitness_scores, cities):
     n_parents = cities
     fronts = pareto_fronts(population, fitness_scores)
     selected_indices = []
-
     for front in fronts:
         if len(front) <= n_parents - len(selected_indices):
             selected_indices.extend(front)
@@ -440,7 +439,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     
     population = generatePopulation(cities, 50)
     pop_size = 50
-
+    eval = 1
     # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(cost1, cost2, population)
     for generation in range(n_generations):
@@ -464,9 +463,12 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
         # Recompute fitness for the new population
         fitness = multiEvaluationSingle(cost1, cost2, population)
         
-
-        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
-    
+        
+        print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
+        if eval < 10000:
+            eval += 2
+        else:
+            break
     return population[0], fitness[0]
 
 def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
@@ -482,7 +484,7 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
     #group all 3 matrices
     matrices1 = [matrix1, matrix3, matrix5]
     matrices2 = [matrix2, matrix4, matrix6]
-
+    eval = 1
     #now we generate a population
     population = generatePopulation(cities, 50)
 
@@ -509,6 +511,11 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
         
         # Recompute fitness for the new population
         fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, population)
+
+        if eval < 10000:
+            eval += 2
+        else:
+            break
 
     return population[0], fitness[0]
 
