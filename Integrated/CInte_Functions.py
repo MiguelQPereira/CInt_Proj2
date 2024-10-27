@@ -422,6 +422,15 @@ def plot_pareto_front(fitness_scores, front_indices, generation=None, save_path=
     plt.close()  # Close the plot to avoid showing in non-interactive environments
     print(f"Pareto front plot saved to {save_path}")
 
+
+def calc_hypervolume (front, fitness, max):
+    hypervolume = 0
+    for idx in front:
+        width = abs(max[0] - fitness[idx][0])
+        heigth = abs(max[1] - fitness[idx][1])
+        hypervolume += width * heigth
+    return hypervolume
+
 def findExtremities(front, scores):
     min_idx = front[0]
     max_idx = front[0]
@@ -542,13 +551,14 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
         else:
             break
     fronts = pareto_fronts(fitness)
+    hypervolume = calc_hypervolume(fronts[0], fitness, [float(np.max(cost1)), float(np.max(cost2))])
     plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
 
     #get the routes and values in the pareto front
     pareto_front_routes = [population[i] for i in fronts[0]]
     pareto_front_fitness = [fitness[i] for i in fronts[0]] 
 
-    return pareto_front_routes, pareto_front_fitness
+    return pareto_front_routes, pareto_front_fitness, hypervolume
 
 def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
     #remove the last cities of each matrix according to n_cities
@@ -600,22 +610,23 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
         else:
             break
     fronts = pareto_fronts(fitness)
+    hypervolume = calc_hypervolume(fronts[0], fitness, [float(np.max(np.maximum.reduce([matrix1, matrix3, matrix5]))), float(np.max(np.maximum.reduce([matrix2, matrix4, matrix6])))])
     plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
     
     #get the routes and values in the pareto front
     pareto_front_routes = [population[i] for i in fronts[0]]
     pareto_front_fitness = [fitness[i] for i in fronts[0]] 
 
-    return pareto_front_routes, pareto_front_fitness
+    return pareto_front_routes, pareto_front_fitness, hypervolume
 
 def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, xy, transport, n_cities=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) == 0) & (isinstance(matrix4, np.ndarray) == 0) & (isinstance(matrix5, np.ndarray) == 0)& (isinstance(matrix6, np.ndarray) == 0):
-        pareto_routes, pareto_fitness = SingleTransportMultiOptimization(matrix1, matrix2, n_cities, n_generations)
+        pareto_routes, pareto_fitness, hypervolume = SingleTransportMultiOptimization(matrix1, matrix2, n_cities, n_generations)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) != 0) & (isinstance(matrix4, np.ndarray) != 0) & (isinstance(matrix5, np.ndarray) != 0)& (isinstance(matrix6, np.ndarray) != 0):
-        pareto_routes, pareto_fitness = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, n_cities, n_generations)
+        pareto_routes, pareto_fitness, hypervolume = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, n_cities, n_generations)
     else:
         print("invalid matrix composition. Send matrix 2 for single transport optimization or all 6 for 3 transport optimization")
         exit(1) 
@@ -637,7 +648,7 @@ def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, 
             save_path = f"{transport}_multi_extreme2"
             createTSPMap(xy, pareto_routes[i], n_cities, title, save_path)
         
-    
+    print("Hypervolume: ",hypervolume)
     
 
     return pareto_routes, pareto_fitness
