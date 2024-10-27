@@ -204,7 +204,7 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
 
     #evaluate the fitness of the starting population
     fitness = evaluatePopulation(matrix, population)
-    eval = 1
+    eval = len(population)
     #now we begin the genetic algorithm loop
     for generation in range(n_generations):
         #select the parents
@@ -231,7 +231,7 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
         conv.append(fitness[0])
         #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
-            eval += 2
+            eval += len(offsprings)
         else:
             break
     return population[0], fitness[0], conv, xy
@@ -274,7 +274,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
 
     #evaluate the fitness of the three starting populations at the same time
     fitness = ThreeTransportEvaluatePopulation(matrices, population)
-    eval = 1
+    eval = len(population)
     #now we begin the genetic algorithm loop
     for generation in range(n_generations):
         #select the parents
@@ -302,7 +302,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
 
         #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
-            eval += 2
+            eval += len(offsprings)
         else:
             break
     return population[0], fitness[0], conv
@@ -546,7 +546,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations,xy)
     
     population = generatePopulation(cities, 50)
     
-    eval = 1
+    eval = len(population)
     # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(cost1, cost2, population)
     
@@ -577,7 +577,7 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations,xy)
         
         #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
-            eval += 2
+            eval += len(offsprings)
         else:
             break
     fronts = pareto_fronts(fitness)
@@ -605,10 +605,10 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
     #group all 3 matrices
     matrices1 = [matrix1, matrix3, matrix5]
     matrices2 = [matrix2, matrix4, matrix6]
-    eval = 1
+    
     #now we generate a population
     population = generatePopulation(cities, 50)
-
+    eval = len(population)
     #evaluate the fitness of the three starting populations at the same time
     fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, population)
 
@@ -638,7 +638,7 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
         fitness = multiThreeTransportEvaluatePopulation(matrices1, matrices2, population)
 
         if eval < 10000:
-            eval += 2
+            eval += len(offsprings)
         else:
             break
     fronts = pareto_fronts(fitness)
