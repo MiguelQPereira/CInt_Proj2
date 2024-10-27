@@ -183,7 +183,7 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
 
     #evaluate the fitness of the starting population
     fitness = evaluatePopulation(matrix, population)
-
+    eval = 1
     #now we begin the genetic algorithm loop
     for generation in range(n_generations):
         #select the parents
@@ -204,8 +204,11 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
-
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
+        if eval < 10000:
+            eval += 2
+        else:
+            break
     return population[0], fitness[0]
     
 #calculate the route cost based on the three matrices, alwats choosing the smallest value out of the three
@@ -246,7 +249,7 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
 
     #evaluate the fitness of the three starting populations at the same time
     fitness = ThreeTransportEvaluatePopulation(matrices, population)
-
+    eval = 1
     #now we begin the genetic algorithm loop
     for generation in range(n_generations):
         #select the parents
@@ -267,8 +270,11 @@ def ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_
         population = [combined_population[i] for i in best_indices]
         fitness = combined_fitness[best_indices]
 
-        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}")
-
+        #print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
+        if eval < 10000:
+            eval += 2
+        else:
+            break
     return population[0], fitness[0]
 
 #given a time or cost matrix or set of 3 matrices, use a genetic algorithm to find an optimal route (minimize time or cost)
@@ -339,7 +345,7 @@ def multiThreeTransportEvaluatePopulation(matrices1, matrices2, population):
     fitness = [[f1, f2] for f1, f2 in zip(fitness1, fitness2)]
     return fitness
 
-def pareto_fronts(population, fitness_scores):
+def pareto_fronts(fitness_scores):
     fronts = []
     remaining_indices = set(range(len(fitness_scores)))
 
@@ -362,6 +368,32 @@ def pareto_fronts(population, fitness_scores):
         fronts.append(front)
         remaining_indices -= set(front)  # Remove individuals in the current front from remaining
     return fronts
+
+def plot_pareto_front(fitness_scores, front_indices, generation=None, save_path='pareto_front.png'):
+    # Extract objective values from fitness scores
+    objective1 = [score[0] for score in fitness_scores]
+    objective2 = [score[1] for score in fitness_scores]
+
+    # Plot all solutions
+    plt.figure(figsize=(10, 6))
+    plt.scatter(objective1, objective2, color='blue', label='All Solutions')
+    plt.xlabel('Objective 1 (e.g., Cost)')
+    plt.ylabel('Objective 2 (e.g., Time)')
+    plt.title(f'Pareto Front{" - Generation " + str(generation) if generation is not None else ""}')
+    
+    # Highlight Pareto front using front indices
+    pareto_front = [fitness_scores[i] for i in front_indices]
+    pareto1 = [fitness_scores[score][0] for score in front_indices]
+    pareto2 = [fitness_scores[score][1] for score in front_indices]
+    plt.scatter(pareto1, pareto2, color='red', label='Pareto Front', marker='o')
+    
+    plt.legend()
+    plt.grid(True)
+    
+    # Save the plot
+    plt.savefig(save_path)
+    plt.close()  # Close the plot to avoid showing in non-interactive environments
+    print(f"Pareto front plot saved to {save_path}")
 
 def findExtremities(front, scores):
     min_idx = front[0]
@@ -400,18 +432,19 @@ def nsga_ii_selection(population, fitness_scores, cities):
     Implements NSGA-II selection for multi-objective optimization.
     """
     n_parents = cities
-    fronts = pareto_fronts(population, fitness_scores)
+    fronts = pareto_fronts(fitness_scores)
     selected_indices = []
-    for front in fronts:
-        if len(front) <= n_parents - len(selected_indices):
-            selected_indices.extend(front)
-            break
-
+    for idx in range(len(fronts)):
+        front = fronts[idx]
         extremes = findExtremities(front, fitness_scores)
-        
-        if n_parents - len(selected_indices) == 1:
+        if len(front) <= (n_parents - len(selected_indices)):
+            selected_indices.extend(front)
+            continue
+
+        elif (n_parents - len(selected_indices)) == 1:
             selected_indices.append(extremes[random.randint(0, 1)])
-        elif n_parents - len(selected_indices) == 2:
+
+        elif (n_parents - len(selected_indices)) == 2:
             selected_indices.extend(extremes)
         else:
             missing_elements = n_parents - len(selected_indices)
@@ -427,27 +460,35 @@ def nsga_ii_selection(population, fitness_scores, cities):
             sorted_front = list(sorted_front)
             sorted_cost = list(sorted_cost)
             sorted_time = list(sorted_time)
-
-            selected_indices.extend(sorted_front[0:missing_elements])
-
+            add = sorted_front[0:missing_elements]
+            selected_indices.extend(add)
     selected_population = [population[i] for i in selected_indices]
-    return selected_population
+    return selected_population, fronts
+
+def has_duplicates(arr_list):
+    for i in range(len(arr_list)):
+        for j in range(i + 1, len(arr_list)):
+            if np.array_equal(arr_list[i], arr_list[j]):
+                return True  # Duplicate found
+    return False
 
 def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     cost1 = trimMatrix(matrix1, cities, 'cost')
     cost2 = trimMatrix(matrix2, cities, 'time')
     
     population = generatePopulation(cities, 50)
+    
     pop_size = 50
     eval = 1
     # Evaluate the fitness of the starting population
     fitness = multiEvaluationSingle(cost1, cost2, population)
-    for generation in range(n_generations):
+    
+    for generation in range(10):#n_generations):
+        print(has_duplicates(population))
         # Select the parents
-        parents = nsga_ii_selection(population, fitness, cities//2)
+        parents, fronts = nsga_ii_selection(population, fitness, pop_size//2)
         # Create offspring
         offsprings = orderCrossover(parents, len(parents))
-
         # Evaluate offspring fitness
         offspring_fitness = multiEvaluationSingle(cost1, cost2, offsprings)
         # Combine parents and offspring
@@ -458,17 +499,16 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
 
         # Get the best individuals
         # Get the best individuals using NSGA-II selection
-        population = nsga_ii_selection(combined_population, combined_fitness, cities)
-        
+        population, fro = nsga_ii_selection(combined_population, combined_fitness, pop_size)
         # Recompute fitness for the new population
         fitness = multiEvaluationSingle(cost1, cost2, population)
-        
         
         print(f"Generation {generation + 1}, Best Fitness: {fitness[0]}, Number of Evaluations: {eval+2}")
         if eval < 10000:
             eval += 2
         else:
             break
+    plot_pareto_front(fitness, fronts[0], generation=None, save_path='pareto_front.png')
     return population[0], fitness[0]
 
 def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
