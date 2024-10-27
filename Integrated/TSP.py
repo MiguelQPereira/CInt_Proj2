@@ -1,5 +1,6 @@
 import sys
 import os
+import numpy as np
 
 import CInte_Functions as ci
 
@@ -90,30 +91,42 @@ if (TRANSPORT == 'all'):
 else:
     transport = [TRANSPORT]
 
+fit=[]
+all_conv = []
 # Start solving the problems
 for p in problem:
     for s in size:
         for o in objective:
             for t in transport:
                 if p == 'single':
-                    if o == 'cost':
-                        if t == 'bus':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_bus, 0, 0, xy, o, "bus", s)
-                        elif t == 'train':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_train, 0, 0, xy, o, "train", s)
-                        elif t == 'plane':
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, xy, o, "plane", s)
-                        else:
-                            ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, xy, o, "all transports", s)
-                    elif o == 'time':
-                        if t == 'bus':
-                            ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, xy, o, "bus", s)
-                        elif t == 'train':
-                            ci.SingleObjectiveGeneticAlgorithm(time_train, 0, 0, xy, o, "train", s)
-                        elif t == 'plane':
-                            ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, xy, o, "plane", s)
-                        else:
-                            ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, xy, o, "all transports", s)
+                    for run in range(3):
+                        if o == 'cost':
+                            if t == 'bus':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(cost_bus, 0, 0, xy, o, "bus", s)
+                            elif t == 'train':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(cost_train, 0, 0, xy, o, "train", s)
+                            elif t == 'plane':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(cost_plane, 0, 0, xy, o, "plane", s)
+                            else:
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(cost_plane, cost_train, cost_bus, xy, o, "all transports", s)
+                        elif o == 'time':
+                            if t == 'bus':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(time_bus, 0, 0, xy, o, "bus", s)
+                            elif t == 'train':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(time_train, 0, 0, xy, o, "train", s)
+                            elif t == 'plane':
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(time_plane, 0, 0, xy, o, "plane", s)
+                            else:
+                                fitness, conv = ci.SingleObjectiveGeneticAlgorithm(time_plane, cost_train, cost_bus, xy, o, "all transports", s)
+                        fit.append(fitness)
+                        all_conv.append(conv)
+
+                    avg_fit = np.mean(fit, axis=0)
+                    std_fit = np.std(fit, axis=0)
+
+                    print(f'Mean: {avg_fit}; STD: {std_fit};')
+
+                    ci.plot_conv(all_conv, o)
                 elif (p == 'multi'):
                     if t == "bus":
                         ci.MultiObjectiveGeneticAlgorithm(cost_bus, time_bus, 0, 0, 0, 0, xy, "bus", s)

@@ -28,7 +28,7 @@ def loadMatrix(filename, obj):
     return df.values
 
 #trims matrixes to remove unwanted cities
-def trimMatrix(matrix, n_cities, type):
+def trimMatrix(matrix, n_cities, type, xy):
     indexes = []
 
     #change maxValue based on type
@@ -53,10 +53,11 @@ def trimMatrix(matrix, n_cities, type):
         #after checking all of a city's values, see if its emtpy, if it is then place its index in the indexes variable
         if empty == True:
             indexes.append(col)
-
     #delete empty cities from the matrix
     matrix = np.delete(matrix, indexes, axis=1)
     matrix = np.delete(matrix, indexes, axis=0)
+
+    xy = xy.drop(indexes).reset_index(drop=True)
 
     #if the matrix has less cities than the number of cities specified, give error
     if len(matrix) < n_cities:
@@ -67,41 +68,42 @@ def trimMatrix(matrix, n_cities, type):
         n_columns = len(matrix) - n_cities
         matrix = matrix[:, :-n_columns]
         
-    return matrix   
+    return matrix, xy
 
 def createTSPMap(xy, route, n_cities, title, save_path):
     if n_cities < 50:
-        xy = xy.iloc[:-(50-n_cities)]
-        
+        xy = xy.iloc[:n_cities]  # Adjust to n_cities from the start of the DataFrame
+
     plt.figure(figsize=(12, 8))
-    m = Basemap(projection='mill', llcrnrlat=30, urcrnrlat=70, llcrnrlon=-15, urcrnrlon=45, resolution='l')  
+    m = Basemap(projection='mill', llcrnrlat=30, urcrnrlat=70, llcrnrlon=-30, urcrnrlon=45, resolution='l')
     m.drawcoastlines()
     m.drawcountries()
 
+    # Convert latitude and longitude to map coordinates
     x, y = m(xy['longitude'].values, xy['latitude'].values)
     m.scatter(x, y, s=50, color='red', marker='o', zorder=5)
 
     for i in range(len(route) - 1):
-        # Get the indices of the two cities to connect
-        start_idx = route[i]
-        end_idx = route[i + 1]
-        
-        # Get the coordinates for these cities
+        start_idx, end_idx = route[i], route[i + 1]
         x_start, y_start = x[start_idx], y[start_idx]
         x_end, y_end = x[end_idx], y[end_idx]
-        
-        # Plot the line
         m.plot([x_start, x_end], [y_start, y_end], linestyle='--', color='blue', linewidth=2, zorder=4)
 
+    # Connect the last city back to the first to complete the route
     m.plot([x[route[0]], x[route[-1]]], [y[route[0]], y[route[-1]]], linestyle='--', color='blue', linewidth=2, zorder=4)
 
-    # Annotate cities with names
+    # Annotate city names on the map
     for i, city in enumerate(xy['city']):
-        plt.text(x[i], y[i], city, fontsize=12, ha='right')
+        plt.text(x[i], y[i], city, fontsize=9, ha='right')
 
     plt.title(title)
+    
+    # Ensure .png extension in save path if not provided
+    if not save_path.endswith('.png'):
+        save_path += '.png'
     plt.savefig(save_path)
-    print(f"image saved to {save_path}.png")
+    plt.close()
+    print(f"Image saved to {save_path}")
 
 #generate population based on population size and number of cities
 def generatePopulation(n_cities, pop_size):
@@ -192,10 +194,10 @@ def swapMutation(offsprings, probability):
     return offsprings
 
 #GA for single transport SOO  
-def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_generations):
+def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_generations, xy):
     conv = []
     #first we discard unwanted cities (cities with low number of stations)
-    matrix = trimMatrix(matrix, n_cities, type)
+    matrix, xy = trimMatrix(matrix, n_cities, type, xy)
 
     #now we generate a population with the trimmed matrix
     population = generatePopulation(n_cities, pop_size)
@@ -232,7 +234,7 @@ def SingleTransportOptimization(matrix, type, transport, n_cities, pop_size, n_g
             eval += 2
         else:
             break
-    return population[0], fitness[0], conv
+    return population[0], fitness[0], conv, xy
     
 #calculate the route cost based on the three matrices, alwats choosing the smallest value out of the three
 def ThreeTransportRouteCost(route, matrices):
@@ -311,7 +313,7 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) == 0) & (isinstance(matrix3, np.ndarray) == 0):
-        best_solution, best_fitness, conv = SingleTransportOptimization(matrix1, type, transport, n_cities, pop_size, n_generations)
+        best_solution, best_fitness, conv, xy = SingleTransportOptimization(matrix1, type, transport, n_cities, pop_size, n_generations, xy)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0):
         best_solution, best_fitness, conv = ThreeTransportOptimization(matrix1, matrix2, matrix3, n_cities, pop_size, n_generations)
     else:
@@ -358,6 +360,31 @@ def SingleObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, xy, type, transpo
 
     return best_fitness, conv
 
+def plot_conv(all_conv, o):
+    mean_per_generation = np.mean(all_conv, axis=0)
+
+    # Create a range for generations
+    generations = range(1, len(all_conv[0]) + 1)
+
+    # Plot each run's fitness values across generations
+    plt.figure(figsize=(10, 6))
+    plt.plot(generations, all_conv[0], label="Run 1", marker='o', markersize=1)
+    plt.plot(generations, all_conv[1], label="Run 2", marker='o', markersize=1)
+    plt.plot(generations, all_conv[2], label="Run 3", marker='o', markersize=1)
+
+    # Plot the mean fitness across generations
+    plt.plot(generations, mean_per_generation, label="Mean "+o, color="black", linewidth=4, linestyle='-', marker='o', markersize=2)
+
+    # Labeling the plot
+    plt.xlabel("Generations")
+    plt.ylabel(o)
+    plt.title("Convergence curves")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'convergence_curves_{o}.png')
+    plt.close()  # Close the plot to avoid showing in non-interactive environments
+    print(f"Pareto front plot saved to convergence_curves_{o}.png")
+    return
 
 ############################################################################################################################################################
 ############################################################################################################################################################
@@ -511,11 +538,11 @@ def has_duplicates(arr_list):
                 return True  # Duplicate found
     return False
 
-def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
+def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations,xy):
 
     pop_size = 50
-    cost1 = trimMatrix(matrix1, cities, 'cost')
-    cost2 = trimMatrix(matrix2, cities, 'time')
+    cost1, xy = trimMatrix(matrix1, cities, 'cost', xy)
+    cost2, xy = trimMatrix(matrix2, cities, 'time',xy)
     
     population = generatePopulation(cities, 50)
     
@@ -561,7 +588,9 @@ def SingleTransportMultiOptimization(matrix1, matrix2, cities, n_generations):
     pareto_front_routes = [population[i] for i in fronts[0]]
     pareto_front_fitness = [fitness[i] for i in fronts[0]] 
 
-    return pareto_front_routes, pareto_front_fitness, hypervolume
+    extremes = findExtremities(fronts[0], fitness)
+
+    return pareto_front_routes, pareto_front_fitness, hypervolume, extremes, xy
 
 def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, cities, n_generations):
     #remove the last cities of each matrix according to n_cities
@@ -619,17 +648,18 @@ def ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5,
     #get the routes and values in the pareto front
     pareto_front_routes = [population[i] for i in fronts[0]]
     pareto_front_fitness = [fitness[i] for i in fronts[0]] 
+    extremes = findExtremities(fronts[0], fitness)
 
-    return pareto_front_routes, pareto_front_fitness, hypervolume
+    return pareto_front_routes, pareto_front_fitness, hypervolume, extremes
 
 def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, xy, transport, n_cities=50, n_generations=250):
     if isinstance(matrix1, np.ndarray) == 0:
         print("Error loading matrix1")
         exit(1)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) == 0) & (isinstance(matrix4, np.ndarray) == 0) & (isinstance(matrix5, np.ndarray) == 0)& (isinstance(matrix6, np.ndarray) == 0):
-        pareto_routes, pareto_fitness, hypervolume = SingleTransportMultiOptimization(matrix1, matrix2, n_cities, n_generations)
+        pareto_routes, pareto_fitness, hypervolume, extremes, xy = SingleTransportMultiOptimization(matrix1, matrix2, n_cities, n_generations, xy)
     elif (isinstance(matrix1, np.ndarray) != 0) & (isinstance(matrix2, np.ndarray) != 0) & (isinstance(matrix3, np.ndarray) != 0) & (isinstance(matrix4, np.ndarray) != 0) & (isinstance(matrix5, np.ndarray) != 0)& (isinstance(matrix6, np.ndarray) != 0):
-        pareto_routes, pareto_fitness, hypervolume = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, n_cities, n_generations)
+        pareto_routes, pareto_fitness, hypervolume, extremes = ThreeTransportMultiOptimization(matrix1, matrix2, matrix3, matrix4, matrix5, matrix6, n_cities, n_generations)
     else:
         print("invalid matrix composition. Send matrix 2 for single transport optimization or all 6 for 3 transport optimization")
         exit(1) 
@@ -642,11 +672,11 @@ def MultiObjectiveGeneticAlgorithm(matrix1, matrix2, matrix3, matrix4, matrix5, 
         print(f"fitnesses (€, Hours) = {pareto_fitness[i]}")
         print("############################################################################################################")
         #only plot extremes
-        if i == 0:
+        if i == extremes[0]:
             title = f"{transport}: multi-objective optimization (1st extreme)"
             save_path = f"{transport}_multi_extreme1"
             createTSPMap(xy, pareto_routes[i], n_cities, title, save_path)
-        elif i == len(pareto_routes)-1:
+        elif i == extremes[1]:
             title = f"{transport}: multi-objective optimization (2nd extreme)"
             save_path = f"{transport}_multi_extreme2"
             createTSPMap(xy, pareto_routes[i], n_cities, title, save_path)
